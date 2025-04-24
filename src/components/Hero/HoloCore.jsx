@@ -1,30 +1,30 @@
 import React, { useRef, useState, useEffect } from 'react';
 import styles from './HoloCore.module.css';
-import { FaPython, FaDocker, FaCode } from 'react-icons/fa';
-import { SiHuggingface } from 'react-icons/si';
+import { FaPython, FaDocker, FaCode, FaRobot, FaBrain } from 'react-icons/fa';
+import { SiHuggingface, SiAnthropic } from 'react-icons/si';
 import { TbBrandOpenai } from 'react-icons/tb';
 import { BsStars } from 'react-icons/bs';
 import { GiWindSlap } from 'react-icons/gi';
 import { MdOutlineWeb } from 'react-icons/md';
 import { BiNetworkChart } from 'react-icons/bi';
-import { IoLogoElectron } from 'react-icons/io5';
+import { RiRouterFill } from 'react-icons/ri';
 
 const AVATAR_SRC = '/avatars/luca-avatar.png';
 const AVATAR_ALT = 'Luca Avatar';
-const AVATAR_SIZE = 740; // Fix typo in AVATAR_SIZE
+const AVATAR_SIZE = 740;
 const ICON_SIZE = 38;
-const MIN_ORBIT_PADDING = 20; // px, space between icons and edge
-const ORBIT_CONTAINER_SIZE = 900; // Decrease orbit circle size by reducing ORBIT_CONTAINER_SIZE and updating initial orbitRadius
+const MIN_ORBIT_PADDING = 20;
+const ORBIT_CONTAINER_SIZE = 900;
 
 const orbitIcons = [
   { name: 'Python', icon: FaPython },
   { name: 'ChatGPT', icon: TbBrandOpenai },
-  { name: 'Claude', icon: BsStars },
+  { name: 'Claude', icon: SiAnthropic },
   { name: 'VSCode', icon: FaCode },
   { name: 'Windsurf', icon: GiWindSlap },
   { name: 'HuggingFace', icon: SiHuggingface },
-  { name: 'OpenRouter.ai', icon: IoLogoElectron },
-  { name: 'Together.ai', icon: BiNetworkChart },
+  { name: 'OpenRouter.ai', icon: RiRouterFill },
+  { name: 'Together.ai', icon: FaBrain },
   { name: 'Docker', icon: FaDocker },
   { name: 'Open WebUI', icon: MdOutlineWeb },
 ];
@@ -39,7 +39,6 @@ const HoloCore = () => {
     function updateOrbit() {
       const vw = window.innerWidth;
       const vh = window.innerHeight;
-      // Decrease base orbit radius
       const maxPossibleRadius = Math.min(
         (vw / 2) - ICON_SIZE - MIN_ORBIT_PADDING,
         (vh / 2) - ICON_SIZE - MIN_ORBIT_PADDING
@@ -70,7 +69,6 @@ const HoloCore = () => {
 
   return (
     <div className={styles.holoCoreContainer}>
-      {/* Move avatar 10px down by adjusting wrapper style */}
       <div className={styles.holoCoreWrapper} style={{ width: AVATAR_SIZE, height: AVATAR_SIZE, top: 'calc(50% + 55px)' }}>
         <img
           src={AVATAR_SRC}
