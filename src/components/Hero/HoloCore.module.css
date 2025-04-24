@@ -9,8 +9,8 @@
 
 .holoCoreWrapper {
   position: absolute;
-  top: calc(50% + 25px);
-  left: 50%;
+  top: calc(50% + 45px);
+  left: 45%;
   transform: translate(-50%, -50%);
   z-index: 3;
   width: 760px;
@@ -40,8 +40,8 @@
 
 .orbitContainer {
   position: absolute;
-  top: calc(50% + 15px);
-  left: 50%;
+  top: calc(50% + 35px);
+  left: 45%;
   transform: translate(-50%, -50%);
   z-index: 1;
   width: 600px;
