@@ -1,0 +1,83 @@
+/* Direct background styles that will be applied regardless of React */
+body {
+  background-color: #040810 !important;
+  color: rgba(255, 255, 255, 0.95) !important;
+}
+
+/* Grid lines */
+body::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image:
+    linear-gradient(to right, rgba(0, 229, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 229, 255, 0.05) 1px, transparent 1px);
+  background-size: 30px 30px;
+  z-index: -5;
+  pointer-events: none;
+}
+
+/* Glow orbs */
+.background-glow-1 {
+  position: fixed;
+  width: 70vw;
+  height: 70vw;
+  left: 30%;
+  top: 30%;
+  border-radius: 50%;
+  background: radial-gradient(circle at center, rgba(0, 229, 255, 0.1) 0%, transparent 70%);
+  filter: blur(80px);
+  z-index: -8;
+  animation: moveGlow1 30s infinite alternate ease-in-out;
+}
+
+.background-glow-2 {
+  position: fixed;
+  width: 60vw;
+  height: 60vw;
+  right: 40%;
+  top: 60%;
+  border-radius: 50%;
+  background: radial-gradient(circle at center, rgba(0, 255, 204, 0.1) 0%, transparent 70%);
+  filter: blur(80px);
+  z-index: -7;
+  animation: moveGlow2 25s infinite alternate-reverse ease-in-out;
+}
+
+.background-glow-3 {
+  position: fixed;
+  width: 50vw;
+  height: 50vw;
+  left: 20%;
+  bottom: 20%;
+  border-radius: 50%;
+  background: radial-gradient(circle at center, rgba(100, 180, 255, 0.1) 0%, transparent 70%);
+  filter: blur(80px);
+  z-index: -6;
+  animation: moveGlow3 35s infinite alternate ease-in-out;
+  animation-delay: 5s;
+}
+
+/* Background glow animations */
+@keyframes moveGlow1 {
+  0% { transform: translate(0, 0); }
+  50% { transform: translate(-10vw, -5vh); }
+  100% { transform: translate(5vw, 8vh); }
+}
+
+@keyframes moveGlow2 {
+  0% { transform: translate(0, 0); }
+  33% { transform: translate(8vw, -7vh); }
+  66% { transform: translate(-5vw, 5vh); }
+  100% { transform: translate(10vw, -10vh); }
+}
+
+@keyframes moveGlow3 {
+  0% { transform: translate(0, 0); }
+  25% { transform: translate(-3vw, 10vh); }
+  75% { transform: translate(10vw, 5vh); }
+  100% { transform: translate(0, 15vh); }
+}

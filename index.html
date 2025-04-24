@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lucaverse</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&family=Space+Grotesk:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <!-- Direct background styles to ensure visibility -->
+  <link rel="stylesheet" href="/background.css">
+  <style>
+    body {
+      background-color: #040810;
+      color: rgba(255, 255, 255, 0.95);
+    }
+  </style>
+</head>
+<body>
+  <!-- Static background elements as fallback -->
+  <div class="background-glow-1"></div>
+  <div class="background-glow-2"></div>
+  <div class="background-glow-3"></div>
+  
+  <div id="root"></div>
+  <script type="module" src="/src/main.jsx"></script>
+  
+  <!-- Debug script -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      console.log('content loaded');
+      document.body.style.backgroundColor = '#040810';
+    });
+  </script>
+</body>
+</html>
