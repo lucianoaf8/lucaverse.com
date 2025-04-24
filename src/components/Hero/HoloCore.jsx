@@ -12,7 +12,7 @@ import { IoLogoElectron } from 'react-icons/io5';
 const AVATAR_SRC = '/avatars/luca-avatar.png';
 const AVATAR_ALT = 'Luca Avatar';
 const AVATAR_SIZE = 740; // Fix typo in AVATAR_SIZE
-const ICON_SIZE = 32;
+const ICON_SIZE = 38;
 const MIN_ORBIT_PADDING = 20; // px, space between icons and edge
 const ORBIT_CONTAINER_SIZE = 900; // Decrease orbit circle size by reducing ORBIT_CONTAINER_SIZE and updating initial orbitRadius
 
@@ -71,7 +71,7 @@ const HoloCore = () => {
   return (
     <div className={styles.holoCoreContainer}>
       {/* Move avatar 10px down by adjusting wrapper style */}
-      <div className={styles.holoCoreWrapper} style={{ width: AVATAR_SIZE, height: AVATAR_SIZE, top: 'calc(50% + 45px)' }}>
+      <div className={styles.holoCoreWrapper} style={{ width: AVATAR_SIZE, height: AVATAR_SIZE, top: 'calc(50% + 55px)' }}>
         <img
           src={AVATAR_SRC}
           alt={AVATAR_ALT}

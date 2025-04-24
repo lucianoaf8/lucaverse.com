@@ -24,7 +24,7 @@ export default function Hero() {
               Our vision: To connect people, technology, and ideas in a borderless digital universe.
             </div>
             <div className={styles.btnGroup}>
-              <a href="#projects" className={`${styles.btn} ${styles.btnPrimary}`}>
+              <a href="#" className={`${styles.btn} ${styles.btnPrimary}`}>
                 Enter the Lucaverse
               </a>
               <button type="button" className={styles.btn} onClick={() => setAccessOpen(true)}>
