@@ -7,7 +7,7 @@ export default function Projects() {
     {
       id: 1,
       title: 'Audio Transcription Project',
-      icon: 'fas fa-waveform',
+      icon: 'fas fa-headphones',
       tags: ['OpenAI', 'Whisper', 'Audio'],
       description: "Transcribes audio files to text using OpenAI's Whisper model.",
       links: [
@@ -17,7 +17,7 @@ export default function Projects() {
     {
       id: 2,
       title: 'Screen Scrape',
-      icon: 'fas fa-clapperboard',
+      icon: 'fas fa-film',
       tags: ['Web Scraping', 'TMDB', 'Database'],
       description: 'Retrieves movie data from TMDB and stores it in a database.',
       links: [
@@ -27,7 +27,7 @@ export default function Projects() {
     {
       id: 3,
       title: 'Finance Deep Analysis',
-      icon: 'fas fa-chart-pie',
+      icon: 'fas fa-chart-line',
       tags: ['Finance', 'Data Analysis', 'Banking'],
       description: 'Analyzes financial data from multiple bank accounts to provide insights into balances, income, expenses, and spending patterns.',
       links: [
@@ -42,7 +42,7 @@ export default function Projects() {
       
       <div className={styles.container}>
         <div className={styles.sectionHeader}>
-          <h2 className={styles.sectionTitle}>Featured Projects</h2>
+          <h2 className={styles.sectionTitle}>My Projects</h2>
           <p className={styles.sectionSubtitle}>A showcase of my most impactful work in AI and data analytics.</p>
         </div>
         

@@ -6,35 +6,32 @@ export default function CustomGPTs() {
   const gpts = [
     {
       id: 1,
-      title: "AI Strategy Advisor",
-      icon: "fas fa-robot",
-      tags: ["Business Strategy", "AI Consulting", "GPT-4"],
-      description: "An intelligent assistant that provides actionable strategies for AI implementation in various business contexts, backed by research and industry best practices.",
+      title: "PythonGPT",
+      icon: "fab fa-python",
+      tags: ["Python", "Coding", "Project Structure"],
+      description: "Python coding expert providing comprehensive solutions and project structure guidance.",
       links: [
-        { icon: "fas fa-external-link-alt", text: "Try It", url: "#" },
-        { icon: "fas fa-info-circle", text: "Learn More", url: "#" }
+        { icon: "fas fa-external-link-alt", text: "Try It", url: "https://chatgpt.com/g/g-UoHNGZJqK-pythongpt" }
       ]
     },
     {
       id: 2,
-      title: "Code Companion",
-      icon: "fas fa-code",
-      tags: ["Coding", "Debugging", "Documentation"],
-      description: "Your personal coding assistant that helps with code generation, debugging, and creating comprehensive documentation for software projects.",
+      title: "MysqlGPT",
+      icon: "fas fa-database",
+      tags: ["MySQL", "Database Design", "Query Optimization"],
+      description: "User-friendly MySQL 8 expert offering database design, query creation, and optimization solutions.",
       links: [
-        { icon: "fas fa-external-link-alt", text: "Try It", url: "#" },
-        { icon: "fas fa-info-circle", text: "Learn More", url: "#" }
+        { icon: "fas fa-external-link-alt", text: "Try It", url: "https://chatgpt.com/g/g-Vo23uO3jp-mysqlgpt" }
       ]
     },
     {
       id: 3,
-      title: "Research Navigator",
-      icon: "fas fa-search",
-      tags: ["Academic Research", "Literature Review", "Citation"],
-      description: "A specialized GPT designed to assist with academic research, literature reviews, and proper citation formatting across various academic disciplines.",
+      title: "PromptMasterGPT",
+      icon: "fas fa-comment-dots",
+      tags: ["Prompt Engineering", "LLM", "Validation"],
+      description: "Helps craft, validate, and score prompts for LLMs without performing the task itself.",
       links: [
-        { icon: "fas fa-external-link-alt", text: "Try It", url: "#" },
-        { icon: "fas fa-info-circle", text: "Learn More", url: "#" }
+        { icon: "fas fa-external-link-alt", text: "Try It", url: "https://chatgpt.com/g/g-67f2d5956e788191b7a0d944992b82d4-promptmastergpt" }
       ]
     }
   ];

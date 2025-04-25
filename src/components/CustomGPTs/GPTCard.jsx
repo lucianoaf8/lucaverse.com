@@ -27,7 +27,7 @@ export default function GPTCard({ gpt }) {
               target="_blank"
               rel="noopener noreferrer"
             >
-              <i className={link.icon}></i> {link.text}
+              <i className={`${link.icon} ${styles.gptLinkIcon}`}></i> {link.text}
             </a>
           ))}
         </div>

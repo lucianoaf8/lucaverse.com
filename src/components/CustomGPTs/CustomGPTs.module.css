@@ -126,6 +126,9 @@
 .gptContent {
   padding: 24px;
   position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 
 .gptTitle {
@@ -160,11 +163,13 @@
   margin-bottom: 20px;
   font-size: 0.95rem;
   color: var(--text-secondary);
+  min-height: 40px; /* Provides minimum space for content */
 }
 
 .gptLinks {
   display: flex;
   gap: 16px;
+  margin-top: auto;
 }
 
 .gptLink {
@@ -174,20 +179,34 @@
   color: var(--primary-cyan);
   text-decoration: none;
   transition: var(--transition-smooth);
+  border: 1.5px solid var(--primary-cyan);
+  border-radius: 30px;
+  padding: 7px 16px 7px 12px;
+  background: rgba(0, 255, 204, 0.06);
+  font-weight: 500;
+  gap: 4px;
 }
 
 .gptLink:hover {
-  color: var(--accent-teal);
+  color: #fff;
+  background: linear-gradient(90deg, #00FFCC 0, #2AF598 100%);
+  border-color: #00FFCC;
+  box-shadow: 0 4px 20px 0 rgba(0,255,204,0.18);
 }
 
 .gptLink i {
+  font-size: 15px;
+  min-width: 15px;
+  min-height: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   margin-right: 6px;
-  font-size: 18px;
   transition: transform 0.3s ease;
 }
 
 .gptLink:hover i {
-  transform: translateY(-3px);
+  transform: scale(1.15) translateY(-2px);
 }
 
 .hudFragment {

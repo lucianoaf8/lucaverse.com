@@ -49,9 +49,6 @@ export default function About() {
               <div className={styles.skillsGrid}>
                 {skills.map((skill, index) => (
                   <div className={styles.skillItem} key={index}>
-                    <div className={styles.skillIcon}>
-                      <i className={skill.icon}></i>
-                    </div>
                     <div className={styles.skillName}>{skill.name}</div>
                   </div>
                 ))}

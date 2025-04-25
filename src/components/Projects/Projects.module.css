@@ -62,9 +62,6 @@
   backdrop-filter: blur(10px);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15), 0 0 0 transparent;
   position: relative;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
 }
 
 .projectCard::before {
@@ -131,7 +128,6 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  flex: 1 1 auto;
   height: 100%;
 }
 
@@ -167,6 +163,7 @@
   margin-bottom: 20px;
   font-size: 0.95rem;
   color: var(--text-secondary);
+  min-height: 40px; /* Provides minimum space for content */
 }
 
 .projectLinks {
@@ -184,10 +181,10 @@
   transition: var(--transition-smooth);
   border: 1.5px solid var(--primary-cyan);
   border-radius: 30px;
-  padding: 7px 18px 7px 12px;
+  padding: 7px 16px 7px 12px;
   background: rgba(0, 255, 204, 0.06);
   font-weight: 500;
-  gap: 7px;
+  gap: 4px;
 }
 
 .projectLink:hover {
@@ -197,8 +194,7 @@
   box-shadow: 0 4px 20px 0 rgba(0,255,204,0.18);
 }
 
-.projectLink i {
-  margin-right: 8px;
+.projectLinkIcon {
   font-size: 15px;
   min-width: 15px;
   min-height: 15px;
@@ -208,7 +204,7 @@
   transition: transform 0.3s ease;
 }
 
-.projectLink:hover i {
+.projectLink:hover .projectLinkIcon {
   transform: scale(1.15) translateY(-2px);
 }
 
