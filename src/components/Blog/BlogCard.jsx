@@ -14,14 +14,16 @@ export default function BlogCard({ post }) {
         <div className={styles.blogDate}>{date}</div>
         <h3 className={styles.blogTitle}>{title}</h3>
         <p className={styles.blogExcerpt}>{excerpt}</p>
-        <a 
-          href={url} 
-          className={styles.readMore}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Read Article <i className="fas fa-arrow-right"></i>
-        </a>
+        <div className={styles.blogLinks} style={{ marginTop: 'auto' }}>
+          <a 
+            href={url} 
+            className={styles.readMore}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <i className="fas fa-clock"></i> Coming Soon
+          </a>
+        </div>
       </div>
     </div>
   );

@@ -6,26 +6,26 @@ export default function Blog() {
   const blogPosts = [
     {
       id: 1,
-      title: "The Future of Transformer Architecture in Enterprise AI",
+      title: "COMING SOON",
       icon: "fas fa-microchip",
-      date: "MAY 12, 2023",
-      excerpt: "An exploration of how transformer models are revolutionizing natural language processing and their potential applications in enterprise environments.",
+      date: "COMING SOON",
+      excerpt: "Exciting content coming soon. Stay tuned for updates on AI, machine learning, and technology topics.",
       url: "#"
     },
     {
       id: 2,
-      title: "Optimizing Neural Networks for Real-Time Applications",
+      title: "COMING SOON",
       icon: "fas fa-network-wired",
-      date: "APRIL 3, 2023",
-      excerpt: "Technical strategies for improving the performance and efficiency of neural networks in resource-constrained environments.",
+      date: "COMING SOON",
+      excerpt: "Exciting content coming soon. Stay tuned for updates on AI, machine learning, and technology topics.",
       url: "#"
     },
     {
       id: 3,
-      title: "Ethical Considerations in AI Development",
+      title: "COMING SOON",
       icon: "fas fa-shield-alt",
-      date: "MARCH 15, 2023",
-      excerpt: "A comprehensive look at the ethical implications of AI and practical frameworks for responsible AI development and deployment.",
+      date: "COMING SOON",
+      excerpt: "Exciting content coming soon. Stay tuned for updates on AI, machine learning, and technology topics.",
       url: "#"
     }
   ];
