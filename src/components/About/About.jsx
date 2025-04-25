@@ -3,14 +3,14 @@ import styles from './About.module.css';
 
 export default function About() {
   const skills = [
-    { name: 'Data Analysis', icon: 'fas fa-chart-line' },
-    { name: 'Model Training', icon: 'fas fa-brain' },
-    { name: 'Fine-tuning', icon: 'fas fa-sliders-h' },
-    { name: 'Computer Vision', icon: 'fas fa-eye' },
-    { name: 'NLP', icon: 'fas fa-language' },
-    { name: 'Reinforcement Learning', icon: 'fas fa-sync-alt' },
-    { name: 'Neural Networks', icon: 'fas fa-network-wired' },
-    { name: 'Data Pipeline', icon: 'fas fa-project-diagram' }
+    { name: 'Data Analysis & Transformation', icon: 'fas fa-chart-line' },
+    { name: 'Python', icon: 'fab fa-python' },
+    { name: 'Excel Office Scripts & VBA', icon: 'fas fa-file-excel' },
+    { name: 'Prompt Engineering', icon: 'fas fa-comment-dots' },
+    { name: 'Workflow Automation', icon: 'fas fa-cogs' },
+    { name: 'Flask Apps & PythonAnywhere', icon: 'fas fa-server' },
+    { name: 'Image-to-Image Tools', icon: 'fas fa-image' },
+    { name: 'Version Control', icon: 'fab fa-git-alt' }
   ];
 
   return (
@@ -27,19 +27,22 @@ export default function About() {
           <div className={styles.aboutImageContainer}>
             {/* Profile image with enhanced styling */}
             <div className={styles.aboutImage}>
-              <div className={styles.imageGradient}></div>
-              <div className={styles.imageOverlay}></div>
-              <div className={styles.tagTop}>[DATA ARCHITECT]</div>
+              <img 
+                src="/avatars/luca-img.png" 
+                alt="Luca" 
+                className={styles.profileImg} 
+              />
+              <div className={styles.tagTop}>[DATA ANALYST]</div>
               <div className={styles.tagBottom}>
-                NEURAL NETWORK SPECIALIST <span className={styles.pulseDot}></span>
+                <span className={styles.pulseDot}></span>
               </div>
             </div>
           </div>
           
           <div className={styles.aboutText}>
             <h3>Transforming Complex Data into Intelligent Solutions</h3>
-            <p>With over 7 years of experience in AI engineering and data science, I specialize in developing innovative solutions that leverage the power of machine learning and data analytics to solve complex business challenges.</p>
-            <p>My expertise spans across deep learning architectures, computer vision systems, natural language processing, and predictive modeling. I thrive in bridging the gap between theoretical concepts and practical implementations, ensuring that AI solutions deliver real business value.</p>
+            <p>I'm Luca — a data analyst and AI enthusiast with a passion for automation and a strong dislike for repetitive tasks. I thrive in analytical thinking and precise execution, constantly experimenting with AI tools and workflows to push what's possible.</p>
+            <p>My work blends curiosity with structure: I explore, test, and refine systems to make them faster, smarter, and more efficient. Whether it's scripting smarter spreadsheets or integrating large language models into daily workflows, I'm driven by a desire to simplify complexity through intelligent automation.</p>
             
             <div className={styles.skillsContainer}>
               <div className={styles.skillsTitle}>Technical Expertise</div>

@@ -19,9 +19,11 @@ export default function Hero() {
               <span className={styles.glowText}>Welcome</span> to the <span className={styles.lucaverseText}>Lucaverse</span>
             </h1>
             <div className={styles.subtitle}>
-              Empowering creators and innovators to build the future with AI, data, and imagination.
+              <strong>Mission</strong><br />
+              To share my knowledge, creations, automations, and discoveries — helping others navigate and build with AI, data, and open technologies.
               <br /><br />
-              Our vision: To connect people, technology, and ideas in a borderless digital universe.
+              <strong>Vision</strong><br />
+              To make Lucaverse the central hub of my mind — a dynamic space for tools, prompts, workflows, and insights focused on AI, data, and automation. A universe powered by curiosity, built on free and open-source foundations.
             </div>
             <div className={styles.btnGroup}>
               <a href="#" className={`${styles.btn} ${styles.btnPrimary}`}>

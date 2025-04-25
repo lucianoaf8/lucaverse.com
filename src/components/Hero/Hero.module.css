@@ -162,6 +162,7 @@ h1 {
   border-color: var(--accent-teal, #00FFCC);
   color: var(--accent-teal, #00FFCC);
   box-shadow: 0 0 20px rgba(0, 255, 204, 0.2);
+  transform: scale(1.05);
 }
 
 .btn:hover:before {
@@ -205,6 +206,7 @@ h1 {
 .btnPrimary:hover {
   color: var(--dark-bg, #040810);
   box-shadow: 0 0 40px rgba(0, 255, 204, 0.5);
+  transform: scale(1.05);
 }
 
 .btnPrimary:hover:before {
