@@ -5,12 +5,12 @@ export default function ProjectCard({ project }) {
   const { title, icon, tags, description, links } = project;
 
   return (
-    <div className={styles.projectCard}>
+    <div className={`${styles.projectCard} flex flex-column`}>
       <div className={styles.projectImageContainer}>
         <div className={styles.projectImagePattern}></div>
         <i className={`${icon} ${styles.projectIcon}`}></i>
       </div>
-      <div className={styles.projectContent}>
+      <div className={`${styles.projectContent} flex flex-column`}>
         <h3 className={styles.projectTitle}>{title}</h3>
         <div className={styles.projectTags}>
           {tags.map((tag, index) => (
@@ -18,7 +18,7 @@ export default function ProjectCard({ project }) {
           ))}
         </div>
         <p className={styles.projectDescription}>{description}</p>
-        <div className={styles.projectLinks}>
+        <div className={`${styles.projectLinks} mt-auto`}>
           {links.map((link, index) => (
             <a 
               key={index} 
@@ -27,7 +27,7 @@ export default function ProjectCard({ project }) {
               target="_blank"
               rel="noopener noreferrer"
             >
-              <i className={link.icon}></i> {link.text}
+              <i className="fab fa-github"></i> {link.text}
             </a>
           ))}
         </div>

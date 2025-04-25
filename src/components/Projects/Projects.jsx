@@ -6,35 +6,32 @@ export default function Projects() {
   const projects = [
     {
       id: 1,
-      title: 'NeuralVision',
-      icon: 'fas fa-brain',
-      tags: ['Computer Vision', 'CNN', 'TensorFlow'],
-      description: 'Advanced object detection system with real-time processing capabilities. Achieved 98.3% accuracy on benchmark datasets using optimized convolutional neural networks.',
+      title: 'Audio Transcription Project',
+      icon: 'fas fa-waveform',
+      tags: ['OpenAI', 'Whisper', 'Audio'],
+      description: "Transcribes audio files to text using OpenAI's Whisper model.",
       links: [
-        { icon: 'fab fa-github', text: 'View Code', url: '#' },
-        { icon: 'fas fa-external-link-alt', text: 'Live Demo', url: '#' }
+        { icon: 'fab fa-github', text: 'View on GitHub', url: 'https://github.com/lucianoaf8/audio-transcript' }
       ]
     },
     {
       id: 2,
-      title: 'SyntaxSage',
-      icon: 'fas fa-language',
-      tags: ['NLP', 'Transformers', 'BERT'],
-      description: 'Natural language processing system for sentiment analysis and entity recognition. Implemented transformer architecture for enhanced contextual understanding.',
+      title: 'Screen Scrape',
+      icon: 'fas fa-clapperboard',
+      tags: ['Web Scraping', 'TMDB', 'Database'],
+      description: 'Retrieves movie data from TMDB and stores it in a database.',
       links: [
-        { icon: 'fab fa-github', text: 'View Code', url: '#' },
-        { icon: 'fas fa-external-link-alt', text: 'Research Paper', url: '#' }
+        { icon: 'fab fa-github', text: 'View on GitHub', url: 'https://github.com/lucianoaf8/screen-scrape' }
       ]
     },
     {
       id: 3,
-      title: 'QuantumMetrics',
-      icon: 'fas fa-chart-line',
-      tags: ['Predictive Analytics', 'Time Series', 'Prophet'],
-      description: 'Predictive analytics platform for financial markets using advanced time-series modeling. Achieved 25% improvement in forecasting accuracy compared to traditional models.',
+      title: 'Finance Deep Analysis',
+      icon: 'fas fa-chart-pie',
+      tags: ['Finance', 'Data Analysis', 'Banking'],
+      description: 'Analyzes financial data from multiple bank accounts to provide insights into balances, income, expenses, and spending patterns.',
       links: [
-        { icon: 'fab fa-github', text: 'View Code', url: '#' },
-        { icon: 'fas fa-external-link-alt', text: 'Case Study', url: '#' }
+        { icon: 'fab fa-github', text: 'View on GitHub', url: 'https://github.com/lucianoaf8/finance-deep-analysis' }
       ]
     }
   ];
