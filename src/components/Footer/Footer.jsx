@@ -7,7 +7,7 @@ export default function Footer() {
       <div className={styles.container}>
         <div className={styles.footerContent}>
           <div className={styles.footerLogo}>
-            <span>Lucaverse</span>
+            <img src="/assets/lv-logo-nobg.png" alt="Lucaverse Logo" />
           </div>
           
           <nav className={styles.footerNav}>

@@ -11,7 +11,7 @@ export default function Header() {
       <header className={styles.header}>
         <div className={styles.headerInner}>
           <div className={styles.logo}>
-            <span>Lucaverse</span>
+            <img src="/assets/lv-logo-nobg.png" alt="Lucaverse Logo"/>
           </div>
           <nav className={styles.nav}>
             <a className={styles.navLink} href="#home">Home</a>

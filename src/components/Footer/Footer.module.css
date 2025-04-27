@@ -27,7 +27,23 @@
   font-size: 1.5rem;
   color: var(--text-primary);
   letter-spacing: 2px;
+  height: 56px;
+  margin: 0;
+  padding: 0;
+  position: relative;
   margin-bottom: 16px;
+}
+
+.footerLogo img {
+  margin: 0;
+  padding: 0;
+  display: block;
+  height: 85px;
+  width: auto;
+  position: absolute;
+  top: -10px;
+  left: 0;
+  z-index: 90;
 }
 
 .footerLogo span {
