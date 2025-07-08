@@ -49,7 +49,7 @@ section:nth-child(odd) {
 
 /* Every even section (2nd, 4th, 6th...) - semi-opaque */
 section:nth-child(even) {
-  background-color: rgba(10, 16, 32, 0.7);
+  background-color: rgba(10, 16, 32, 0.4);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   box-shadow: 0 0 40px rgba(0, 0, 0, 0.2);
@@ -61,9 +61,9 @@ section:nth-child(even) {
 }
 
 #about {
-  background-color: rgba(10, 16, 32, 0.7);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background-color: rgba(10, 16, 32, 0.4);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
 }
 
 #projects {
@@ -71,9 +71,9 @@ section:nth-child(even) {
 }
 
 #custom-gpts {
-  background-color: rgba(10, 16, 32, 0.7);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background-color: rgba(10, 16, 32, 0.4);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
 }
 
 #blog {
@@ -81,9 +81,9 @@ section:nth-child(even) {
 }
 
 #contact {
-  background-color: rgba(10, 16, 32, 0.7);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background-color: rgba(10, 16, 32, 0.4);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
 }
 
 /* Scrollbar styling */
