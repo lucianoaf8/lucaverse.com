@@ -1,37 +1,40 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styles from './Projects.module.css';
 import ProjectCard from './ProjectCard';
 
 export default function Projects() {
+  const { t } = useTranslation();
+
   const projects = [
     {
       id: 1,
-      title: 'Audio Transcription Project',
+      title: t('audioTranscriptionTitle'),
       icon: 'fas fa-headphones',
-      tags: ['OpenAI', 'Whisper', 'Audio'],
-      description: "Transcribes audio files to text using OpenAI's Whisper model.",
+      tags: [t('tags.openAI'), t('tags.whisper'), t('tags.audio')],
+      description: t('audioTranscriptionDescription'),
       links: [
-        { icon: 'fab fa-github', text: 'View on GitHub', url: 'https://github.com/lucianoaf8/audio-transcript' }
+        { icon: 'fab fa-github', text: t('viewOnGithub'), url: 'https://github.com/lucianoaf8/audio-transcript' }
       ]
     },
     {
       id: 2,
-      title: 'Screen Scrape',
+      title: t('screenScrapeTitle'),
       icon: 'fas fa-film',
-      tags: ['Web Scraping', 'TMDB', 'Database'],
-      description: 'Retrieves movie data from TMDB and stores it in a database.',
+      tags: [t('tags.webScraping'), t('tags.tmdb'), t('tags.database')],
+      description: t('screenScrapeDescription'),
       links: [
-        { icon: 'fab fa-github', text: 'View on GitHub', url: 'https://github.com/lucianoaf8/screen-scrape' }
+        { icon: 'fab fa-github', text: t('viewOnGithub'), url: 'https://github.com/lucianoaf8/screen-scrape' }
       ]
     },
     {
       id: 3,
-      title: 'Finance Deep Analysis',
+      title: t('financeAnalysisTitle'),
       icon: 'fas fa-chart-line',
-      tags: ['Finance', 'Data Analysis', 'Banking'],
-      description: 'Analyzes financial data from multiple bank accounts to provide insights into balances, income, expenses, and spending patterns.',
+      tags: [t('tags.finance'), t('tags.dataAnalysis'), t('tags.banking')],
+      description: t('financeAnalysisDescription'),
       links: [
-        { icon: 'fab fa-github', text: 'View on GitHub', url: 'https://github.com/lucianoaf8/finance-deep-analysis' }
+        { icon: 'fab fa-github', text: t('viewOnGithub'), url: 'https://github.com/lucianoaf8/finance-deep-analysis' }
       ]
     }
   ];
@@ -42,8 +45,8 @@ export default function Projects() {
       
       <div className={styles.container}>
         <div className={styles.sectionHeader}>
-          <h2 className={styles.sectionTitle}>My Projects</h2>
-          <p className={styles.sectionSubtitle}>A showcase of my most impactful work in AI and data analytics.</p>
+          <h2 className={styles.sectionTitle}>{t('myProjects')}</h2>
+          <p className={styles.sectionSubtitle}>{t('projectsSubtitle')}</p>
         </div>
         
         <div className={styles.projectsGrid}>

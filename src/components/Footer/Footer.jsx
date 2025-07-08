@@ -1,7 +1,10 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styles from './Footer.module.css';
 
 export default function Footer() {
+  const { t } = useTranslation();
+
   return (
     <footer className={styles.footer}>
       <div className={styles.container}>
@@ -11,14 +14,14 @@ export default function Footer() {
           </div>
           
           <nav className={styles.footerNav}>
-            <a className={styles.footerLink} href="#home">Home</a>
-            <a className={styles.footerLink} href="#about">About</a>
-            <a className={styles.footerLink} href="#projects">Projects</a>
-            <a className={styles.footerLink} href="#custom-gpts">Custom GPTs</a>
-            <a className={styles.footerLink} href="#blog">Blog</a>
-            <a className={styles.footerLink} href="#contact">Contact Me</a>
+            <a className={styles.footerLink} href="#home">{t('footerHome')}</a>
+            <a className={styles.footerLink} href="#about">{t('footerAbout')}</a>
+            <a className={styles.footerLink} href="#projects">{t('footerProjects')}</a>
+            <a className={styles.footerLink} href="#custom-gpts">{t('footerCustomGpts')}</a>
+            <a className={styles.footerLink} href="#blog">{t('footerBlog')}</a>
+            <a className={styles.footerLink} href="#contact">{t('footerContact')}</a>
             <a className={styles.footerLink} href="https://newsletter.lucaverse.com" target="_blank" rel="noopener noreferrer">
-              Newsletter <i className="fas fa-external-link-alt"></i>
+              {t('newsletter')} <i className="fas fa-external-link-alt"></i>
             </a>
           </nav>
           
@@ -39,7 +42,7 @@ export default function Footer() {
         </div>
         
           <p className={styles.copyright}>
-            &copy; {new Date().getFullYear()} Lucaverse. All rights reserved.
+            {t('copyright', { year: new Date().getFullYear() })}
           </p>
         </div>
     </footer>

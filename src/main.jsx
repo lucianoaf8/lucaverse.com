@@ -1,7 +1,8 @@
-import React, { useEffect } from 'react';
+import React, { Suspense, useEffect } from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import './index.css';
+import './i18n'; // Import your i18n configuration
 
 // Add a simple debug utility to check DOM styles after render
 const Root = () => {
@@ -19,7 +20,9 @@ const Root = () => {
   
   return (
     <React.StrictMode>
-      <App />
+      <Suspense fallback={<div>Loading...</div>}>
+        <App />
+      </Suspense>
     </React.StrictMode>
   );
 };

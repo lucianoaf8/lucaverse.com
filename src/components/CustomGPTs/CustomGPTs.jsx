@@ -1,37 +1,40 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styles from './CustomGPTs.module.css';
 import GPTCard from './GPTCard';
 
 export default function CustomGPTs() {
+  const { t } = useTranslation();
+
   const gpts = [
     {
       id: 1,
-      title: "PythonGPT",
+      title: t('pythonGptTitle'),
       icon: "fab fa-python",
-      tags: ["Python", "Coding", "Project Structure"],
-      description: "Python coding expert providing comprehensive solutions and project structure guidance.",
+      tags: [t('gptTags.python'), t('gptTags.coding'), t('gptTags.projectStructure')],
+      description: t('pythonGptDescription'),
       links: [
-        { icon: "fas fa-external-link-alt", text: "Try It", url: "https://chatgpt.com/g/g-UoHNGZJqK-pythongpt" }
+        { icon: "fas fa-external-link-alt", text: t('tryIt'), url: "https://chatgpt.com/g/g-UoHNGZJqK-pythongpt" }
       ]
     },
     {
       id: 2,
-      title: "MysqlGPT",
+      title: t('mysqlGptTitle'),
       icon: "fas fa-database",
-      tags: ["MySQL", "Database Design", "Query Optimization"],
-      description: "User-friendly MySQL 8 expert offering database design, query creation, and optimization solutions.",
+      tags: [t('gptTags.mysql'), t('gptTags.databaseDesign'), t('gptTags.queryOptimization')],
+      description: t('mysqlGptDescription'),
       links: [
-        { icon: "fas fa-external-link-alt", text: "Try It", url: "https://chatgpt.com/g/g-Vo23uO3jp-mysqlgpt" }
+        { icon: "fas fa-external-link-alt", text: t('tryIt'), url: "https://chatgpt.com/g/g-Vo23uO3jp-mysqlgpt" }
       ]
     },
     {
       id: 3,
-      title: "PromptMasterGPT",
+      title: t('promptMasterGptTitle'),
       icon: "fas fa-comment-dots",
-      tags: ["Prompt Engineering", "LLM", "Validation"],
-      description: "Helps craft, validate, and score prompts for LLMs without performing the task itself.",
+      tags: [t('gptTags.promptEngineering'), t('gptTags.llm'), t('gptTags.validation')],
+      description: t('promptMasterGptDescription'),
       links: [
-        { icon: "fas fa-external-link-alt", text: "Try It", url: "https://chatgpt.com/g/g-67f2d5956e788191b7a0d944992b82d4-promptmastergpt" }
+        { icon: "fas fa-external-link-alt", text: t('tryIt'), url: "https://chatgpt.com/g/g-67f2d5956e788191b7a0d944992b82d4-promptmastergpt" }
       ]
     }
   ];
@@ -42,8 +45,8 @@ export default function CustomGPTs() {
       
       <div className={styles.container}>
         <div className={styles.sectionHeader}>
-          <h2 className={styles.sectionTitle}>Custom GPTs</h2>
-          <p className={styles.sectionSubtitle}>Specialized AI assistants designed to enhance productivity and solve specific challenges.</p>
+          <h2 className={styles.sectionTitle}>{t('customGptsTitle')}</h2>
+          <p className={styles.sectionSubtitle}>{t('customGptsSubtitle')}</p>
         </div>
         
         <div className={styles.gptsGrid}>

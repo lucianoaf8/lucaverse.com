@@ -1,20 +1,23 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styles from './Contact.module.css';
 
 export default function Contact() {
+  const { t } = useTranslation();
+
   return (
     <section className={styles.contact} id="contact">
       <div className={styles.container}>
         <div className={styles.sectionHeader}>
-          <h2 className={styles.sectionTitle}>Get In Touch</h2>
-          <p className={styles.sectionSubtitle}>Have a project in mind or looking for a skilled AI engineer? Let's connect and explore how we can work together.</p>
+          <h2 className={styles.sectionTitle}>{t('getInTouch')}</h2>
+          <p className={styles.sectionSubtitle}>{t('contactSubtitle')}</p>
         </div>
         
         <div className={styles.contactContainer}>
           <div className={styles.contactInfo}>
             <div className={styles.contactText}>
-              <h3>Let's Build Something Amazing Together</h3>
-              <p>I'm always open to discussing new projects, partnerships, or how AI can help solve your business challenges.</p>
+              <h3>{t('contactTitle')}</h3>
+              <p>{t('contactParagraph')}</p>
             </div>
             
             <div className={styles.contactItem}>
@@ -22,8 +25,8 @@ export default function Contact() {
                 <i className="fas fa-map-marker-alt"></i>
               </div>
               <div className={styles.contactDetails}>
-                <h4>Address</h4>
-                <p>Canada <span className={styles.flag}>🇨🇦</span></p>
+                <h4>{t('address')}</h4>
+                <p>{t('canada')} <span className={styles.flag}>🇨🇦</span></p>
               </div>
             </div>
             
@@ -32,8 +35,8 @@ export default function Contact() {
                 <i className="fas fa-globe-americas"></i>
               </div>
               <div className={styles.contactDetails}>
-                <h4>Origin</h4>
-                <p>Brazilian Born <span className={styles.flag}>🇧🇷</span></p>
+                <h4>{t('origin')}</h4>
+                <p>{t('brazilianBorn')} <span className={styles.flag}>🇧🇷</span></p>
               </div>
             </div>
             
@@ -42,8 +45,8 @@ export default function Contact() {
                 <i className="fas fa-envelope"></i>
               </div>
               <div className={styles.contactDetails}>
-                <h4>Email</h4>
-                <p>contact@lucaverse.com</p>
+                <h4>{t('email')}</h4>
+                <p>{t('contactEmail')}</p>
               </div>
             </div>
             
@@ -65,19 +68,19 @@ export default function Contact() {
           
           <form className={styles.contactForm}>
             <div className={styles.formGroup}>
-              <input type="text" id="name" className={styles.formControl} placeholder="Your Name" required />
+              <input type="text" id="name" className={styles.formControl} placeholder={t('yourNamePlaceholder')} required />
             </div>
             <div className={styles.formGroup}>
-              <input type="email" id="email" className={styles.formControl} placeholder="Your Email" required />
+              <input type="email" id="email" className={styles.formControl} placeholder={t('yourEmailPlaceholder')} required />
             </div>
             <div className={styles.formGroup}>
-              <input type="text" id="subject" className={styles.formControl} placeholder="Subject" required />
+              <input type="text" id="subject" className={styles.formControl} placeholder={t('subjectPlaceholder')} required />
             </div>
             <div className={styles.formGroup}>
-              <textarea id="message" className={styles.formControl} rows="5" placeholder="Your Message" required></textarea>
+              <textarea id="message" className={styles.formControl} rows="5" placeholder={t('messagePlaceholder')} required></textarea>
             </div>
             <button type="submit" className={styles.submitBtn}>
-              Send Message <i className="fas fa-paper-plane"></i>
+              {t('sendMessage')} <i className="fas fa-paper-plane"></i>
             </button>
           </form>
         </div>

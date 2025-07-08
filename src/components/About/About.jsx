@@ -1,16 +1,19 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styles from './About.module.css';
 
 export default function About() {
+  const { t } = useTranslation();
+
   const skills = [
-    { name: 'Data Analysis & Transformation', icon: 'fas fa-chart-line' },
-    { name: 'Python', icon: 'fab fa-python' },
-    { name: 'Excel Office Scripts & VBA', icon: 'fas fa-file-excel' },
-    { name: 'Prompt Engineering', icon: 'fas fa-comment-dots' },
-    { name: 'Workflow Automation', icon: 'fas fa-cogs' },
-    { name: 'Flask Apps & PythonAnywhere', icon: 'fas fa-server' },
-    { name: 'Image-to-Image Tools', icon: 'fas fa-image' },
-    { name: 'Version Control', icon: 'fab fa-git-alt' }
+    { name: t('skills.dataAnalysis'), icon: 'fas fa-chart-line' },
+    { name: t('skills.python'), icon: 'fab fa-python' },
+    { name: t('skills.excel'), icon: 'fas fa-file-excel' },
+    { name: t('skills.promptEngineering'), icon: 'fas fa-comment-dots' },
+    { name: t('skills.workflowAutomation'), icon: 'fas fa-cogs' },
+    { name: t('skills.flask'), icon: 'fas fa-server' },
+    { name: t('skills.imageToImage'), icon: 'fas fa-image' },
+    { name: t('skills.versionControl'), icon: 'fab fa-git-alt' }
   ];
 
   return (
@@ -19,8 +22,8 @@ export default function About() {
       
       <div className={styles.container}>
         <div className={styles.sectionHeader}>
-          <h2 className={styles.sectionTitle}>About Me</h2>
-          <p className={styles.sectionSubtitle}>Where algorithms meet intuition and data transforms into actionable insights.</p>
+          <h2 className={styles.sectionTitle}>{t('aboutMe')}</h2>
+          <p className={styles.sectionSubtitle}>{t('aboutSubtitle')}</p>
         </div>
         
         <div className={styles.aboutContent}>
@@ -40,12 +43,12 @@ export default function About() {
           </div>
           
           <div className={styles.aboutText}>
-            <h3>Transforming Complex Data into Intelligent Solutions</h3>
-            <p>I'm Luca — a data analyst and AI enthusiast with a passion for automation and a strong dislike for repetitive tasks. I thrive in analytical thinking and precise execution, constantly experimenting with AI tools and workflows to push what's possible.</p>
-            <p>My work blends curiosity with structure: I explore, test, and refine systems to make them faster, smarter, and more efficient. Whether it's scripting smarter spreadsheets or integrating large language models into daily workflows, I'm driven by a desire to simplify complexity through intelligent automation.</p>
+            <h3>{t('aboutTitle')}</h3>
+            <p>{t('aboutParagraph1')}</p>
+            <p>{t('aboutParagraph2')}</p>
             
             <div className={styles.skillsContainer}>
-              <div className={styles.skillsTitle}>Technical Expertise</div>
+              <div className={styles.skillsTitle}>{t('technicalExpertise')}</div>
               <div className={styles.skillsGrid}>
                 {skills.map((skill, index) => (
                   <div className={styles.skillItem} key={index}>

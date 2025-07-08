@@ -1,31 +1,34 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styles from './Blog.module.css';
 import BlogCard from './BlogCard';
 
 export default function Blog() {
+  const { t } = useTranslation();
+
   const blogPosts = [
     {
       id: 1,
-      title: "COMING SOON",
+      title: t('comingSoon'),
       icon: "fas fa-microchip",
-      date: "COMING SOON",
-      excerpt: "Exciting content coming soon. Stay tuned for updates on AI, machine learning, and technology topics.",
+      date: t('comingSoon'),
+      excerpt: t('blogExcerpt'),
       url: "#"
     },
     {
       id: 2,
-      title: "COMING SOON",
+      title: t('comingSoon'),
       icon: "fas fa-network-wired",
-      date: "COMING SOON",
-      excerpt: "Exciting content coming soon. Stay tuned for updates on AI, machine learning, and technology topics.",
+      date: t('comingSoon'),
+      excerpt: t('blogExcerpt'),
       url: "#"
     },
     {
       id: 3,
-      title: "COMING SOON",
+      title: t('comingSoon'),
       icon: "fas fa-shield-alt",
-      date: "COMING SOON",
-      excerpt: "Exciting content coming soon. Stay tuned for updates on AI, machine learning, and technology topics.",
+      date: t('comingSoon'),
+      excerpt: t('blogExcerpt'),
       url: "#"
     }
   ];
@@ -36,8 +39,8 @@ export default function Blog() {
       
       <div className={styles.container}>
         <div className={styles.sectionHeader}>
-          <h2 className={styles.sectionTitle}>Blog</h2>
-          <p className={styles.sectionSubtitle}>Insights and perspectives on AI, machine learning, and data science.</p>
+          <h2 className={styles.sectionTitle}>{t('blogTitle')}</h2>
+          <p className={styles.sectionSubtitle}>{t('blogSubtitle')}</p>
         </div>
         
         <div className={styles.blogGrid}>
