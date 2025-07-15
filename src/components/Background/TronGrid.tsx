@@ -407,52 +407,25 @@ const SubtleTronGrid = () => (
 
         // Draw AI circuit light trails and lights
         lightCycles.forEach(cycle => {
-          // Draw trail with segmented glow
-          ctx.lineCap = 'butt'; // Use 'butt' for sharper segments
-          const segmentSize = 4; // Size of each trail segment
-          const gapSize = 2; // Gap between segments
-
+          // Draw trail with continuous lines and fading effect
           for (let i = 1; i < cycle.trail.length; i++) {
             const p1 = cycle.trail[i - 1];
             const p2 = cycle.trail[i];
-            const alpha = (i / cycle.trail.length) * 0.8; // Fade out older segments
-            const width = 1.5 + alpha * 1.5;
 
-            const dx = p2.x - p1.x;
-            const dy = p2.y - p1.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
+            // Calculate alpha so the tail fades out. Older segments are more transparent.
+            const alpha = (i / cycle.trail.length) * 0.8;
 
-            if (distance > 0) {
-              const numSegments = Math.floor(distance / (segmentSize + gapSize));
-              for (let s = 0; s < numSegments; s++) {
-                const segmentProgress = (s * (segmentSize + gapSize)) / distance;
-                const segmentEndProgress = segmentProgress + segmentSize / distance;
-                const segmentX = lerp(p1.x, p2.x, segmentProgress);
-                const segmentY = lerp(p1.y, p2.y, segmentProgress);
-                const segmentEndX = lerp(p1.x, p2.x, segmentEndProgress);
-                const segmentEndY = lerp(p1.y, p2.y, segmentEndProgress);
+            // Set the color and transparency of the line segment
+            ctx.strokeStyle = cycle.color === 'cyan' ? `rgba(0, 255, 255, ${alpha * 0.8})` : `rgba(255, 150, 0, ${alpha * 0.8})`;
+            
+            // Make the tail thinner at the end
+            ctx.lineWidth = 1.5 + alpha * 1.5;
 
-                // Outer glow for the trail segment
-                ctx.strokeStyle = cycle.color === 'cyan'
-                  ? `rgba(0, 255, 255, ${alpha * 0.15})`
-                  : `rgba(255, 150, 0, ${alpha * 0.15})`;
-                ctx.lineWidth = width + 2;
-                ctx.beginPath();
-                ctx.moveTo(segmentX, segmentY);
-                ctx.lineTo(segmentEndX, segmentEndY);
-                ctx.stroke();
-
-                // Inner trail segment
-                ctx.strokeStyle = cycle.color === 'cyan'
-                  ? `rgba(0, 255, 255, ${alpha * 0.8})`
-                  : `rgba(255, 150, 0, ${alpha * 0.8})`;
-                ctx.lineWidth = width;
-                ctx.beginPath();
-                ctx.moveTo(segmentX, segmentY);
-                ctx.lineTo(segmentEndX, segmentEndY);
-                ctx.stroke();
-              }
-            }
+            // Draw the line segment between the last two points
+            ctx.beginPath();
+            ctx.moveTo(p1.x, p1.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.stroke();
           }
           
           // Draw AI circuit light (square)
