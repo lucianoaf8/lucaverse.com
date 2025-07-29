@@ -147,7 +147,24 @@ i18n
           contactLocalDev: "Thanks for your message! (Local development - Luca will get back to you shortly)",
           
           // Generic Error
-          genericError: "An error occurred. Please try again later."
+          genericError: "An error occurred. Please try again later.",
+          
+          // Login Component
+          login: {
+            fontTheme: "Font Theme",
+            enterThe: "Enter the",
+            lucaverse: "Lucaverse",
+            subtitle: "Access your AI-powered workspace",
+            chooseGateway: "Choose Your Gateway",
+            connectWith: "Connect with your preferred authentication method",
+            continueWithGoogle: "Continue with Google",
+            continueWithMicrosoft: "Continue with Microsoft",
+            initializing: "Initializing connection...",
+            secureAuth: "Secure Authentication",
+            termsAgreement: "By continuing, you agree to our Terms of Service",
+            encryption: "Protected by enterprise-grade encryption",
+            secureConnection: "SECURE CONNECTION ESTABLISHED"
+          }
         }
       },
       pt: {
@@ -285,7 +302,24 @@ i18n
           contactLocalDev: "Obrigado pela sua mensagem! (Desenvolvimento local - Luca entrará em contato em breve)",
           
           // Generic Error
-          genericError: "Ocorreu um erro. Tente novamente mais tarde."
+          genericError: "Ocorreu um erro. Tente novamente mais tarde.",
+          
+          // Login Component
+          login: {
+            fontTheme: "Tema da Fonte",
+            enterThe: "Entre no",
+            lucaverse: "Lucaverse",
+            subtitle: "Acesse seu espaço de trabalho movido por IA",
+            chooseGateway: "Escolha Seu Portal de Entrada",
+            connectWith: "Conecte-se com seu método de autenticação preferido",
+            continueWithGoogle: "Continuar com Google",
+            continueWithMicrosoft: "Continuar com Microsoft",
+            initializing: "Inicializando conexão...",
+            secureAuth: "Autenticação Segura",
+            termsAgreement: "Ao continuar, você concorda com nossos Termos de Serviço",
+            encryption: "Protegido por criptografia de nível empresarial",
+            secureConnection: "CONEXÃO SEGURA ESTABELECIDA"
+          }
         }
       }
     }

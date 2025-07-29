@@ -1,0 +1,393 @@
+/* LucaverseLogin Component Styles */
+.container {
+  min-height: 100vh;
+  background: var(--dark-bg);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+
+/* Background Grid Pattern */
+.gridPattern {
+  position: absolute;
+  inset: 0;
+  opacity: 0.1;
+  background-image: 
+    linear-gradient(to right, rgba(0, 229, 255, 0.1) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 229, 255, 0.1) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* Glow Orbs */
+.glowOrbCyan {
+  position: absolute;
+  top: 25%;
+  left: 25%;
+  width: 24rem;
+  height: 24rem;
+  background: var(--primary-cyan);
+  border-radius: 50%;
+  opacity: 0.007;
+  filter: blur(64px);
+  animation: pulse 4s ease-in-out infinite;
+}
+
+.glowOrbTeal {
+  position: absolute;
+  bottom: 25%;
+  right: 25%;
+  width: 20rem;
+  height: 20rem;
+  background: var(--accent-teal);
+  border-radius: 50%;
+  opacity: 0.007;
+  filter: blur(64px);
+  animation: pulse 4s ease-in-out infinite;
+  animation-delay: 1s;
+}
+
+/* Main Login Container */
+.mainContainer {
+  position: relative;
+  z-index: 10;
+  width: 100%;
+  max-width: 28rem;
+  margin: 0 1rem;
+}
+
+/* Header */
+.header {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+/* Logo */
+.logoContainer {
+  margin-bottom: 2rem;
+}
+
+.logo {
+  width: 4rem;
+  height: 4rem;
+  margin: 0 auto 1rem;
+  position: relative;
+}
+
+.logoGlow {
+  position: absolute;
+  inset: 0;
+  background: var(--holographic-gradient);
+  border-radius: 0.5rem;
+  filter: blur(4px);
+  opacity: 0.6;
+}
+
+.logoInner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: #111827;
+  border-radius: 0.5rem;
+  border: 1px solid var(--primary-cyan);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.logoImage {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 0 8px rgba(0, 229, 255, 0.5));
+}
+
+/* Title */
+.title {
+  font-size: 2.25rem;
+  font-weight: bold;
+  margin-bottom: 1rem;
+  color: white;
+  font-family: 'Space Grotesk', sans-serif;
+}
+
+.titleGradient {
+  background: var(--holographic-gradient);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 8px rgba(0, 229, 255, 0.5));
+}
+
+.subtitle {
+  color: #9ca3af;
+  font-size: 1.125rem;
+  font-family: 'Outfit', sans-serif;
+}
+
+/* Login Card */
+.loginCard {
+  position: relative;
+  background: rgba(17, 24, 39, 0.6);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(0, 229, 255, 0.3);
+  border-radius: 0.75rem;
+  padding: 2rem;
+  padding-bottom: 3rem;
+  box-shadow: 
+    0 0 40px rgba(0, 229, 255, 0.1),
+    inset 0 0 40px rgba(0, 255, 204, 0.05);
+  min-height: 420px;
+}
+
+/* Holographic border effect */
+.holographicBorder {
+  position: absolute;
+  inset: 0;
+  border-radius: 0.75rem;
+  opacity: 0.2;
+  filter: blur(2px);
+  z-index: -1;
+  background: conic-gradient(from 180deg, #00FFCC, #00E5FF, #2AF598, #009EFD, #00FFCC);
+  padding: 2px;
+}
+
+.cardContent {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.cardHeader {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.cardTitle {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: white;
+  margin-bottom: 0.5rem;
+  font-family: 'Space Grotesk', sans-serif;
+}
+
+.cardSubtitle {
+  color: #9ca3af;
+  font-size: 0.875rem;
+  font-family: 'Outfit', sans-serif;
+}
+
+/* Login Buttons */
+.loginButton {
+  width: 100%;
+  position: relative;
+  cursor: pointer;
+  border: none;
+  background: none;
+  padding: 0;
+}
+
+.loginButton:disabled {
+  cursor: not-allowed;
+}
+
+.buttonContainer {
+  width: 100%;
+  background: #1f2937;
+  border: 2px solid rgba(0, 229, 255, 0.4);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  transition: var(--transition-smooth);
+  box-shadow: 0 0 10px rgba(0, 229, 255, 0.1);
+}
+
+.buttonContainer.hovered {
+  border-color: rgba(0, 229, 255, 0.8);
+  background: rgba(31, 41, 55, 0.8);
+  transform: scale(1.05);
+  box-shadow: 0 0 20px rgba(0, 229, 255, 0.3);
+}
+
+.buttonContainer.loading {
+  opacity: 0.5;
+}
+
+.buttonContainer.microsoft {
+  border-color: rgba(0, 255, 204, 0.4);
+  box-shadow: 0 0 10px rgba(0, 255, 204, 0.1);
+}
+
+.buttonContainer.microsoft.hovered {
+  border-color: rgba(0, 255, 204, 0.8);
+  box-shadow: 0 0 20px rgba(0, 255, 204, 0.3);
+}
+
+.buttonContent {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.buttonIcon {
+  width: 1.5rem;
+  height: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.googleIcon {
+  background: white;
+  border-radius: 0.25rem;
+}
+
+.buttonText {
+  color: white;
+  font-weight: 500;
+  font-family: 'Outfit', sans-serif;
+}
+
+/* Loading State */
+.loadingContainer {
+  text-align: center;
+  padding: 1rem 0;
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.loadingContent {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.loadingSpinner {
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid var(--primary-cyan);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.loadingText {
+  color: var(--primary-cyan);
+  font-size: 0.875rem;
+  font-family: 'Outfit', sans-serif;
+}
+
+/* Divider */
+.divider {
+  position: relative;
+  margin: 2rem 0;
+}
+
+.dividerLine {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+}
+
+.dividerBorder {
+  width: 100%;
+  border-top: 1px solid #4b5563;
+}
+
+.dividerContent {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  font-size: 0.875rem;
+}
+
+.dividerText {
+  padding: 0 1rem;
+  background: #111827;
+  color: #9ca3af;
+  font-family: 'Outfit', sans-serif;
+}
+
+/* Footer */
+.footer {
+  text-align: center;
+  font-size: 0.75rem;
+  color: #6b7280;
+  font-family: 'Outfit', sans-serif;
+}
+
+.footerText {
+  margin-bottom: 0.5rem;
+}
+
+/* Bottom HUD Element */
+.bottomHud {
+  text-align: center;
+  margin-top: 2rem;
+}
+
+.hudContent {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #6b7280;
+  font-size: 0.875rem;
+  font-family: 'Space Grotesk', sans-serif;
+}
+
+.hudDot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.hudDotCyan {
+  background: var(--primary-cyan);
+}
+
+.hudDotTeal {
+  background: var(--accent-teal);
+  animation-delay: 0.5s;
+}
+
+/* Responsive Design */
+@media (max-width: 576px) {
+  .title {
+    font-size: 1.875rem;
+  }
+  
+  .loginCard {
+    padding: 1.5rem;
+    margin: 0 0.5rem;
+  }
+  
+  .fontThemeSelector {
+    top: 1rem;
+    right: 1rem;
+  }
+}
+
+/* Animations */
+@keyframes pulse {
+  0%, 100% { 
+    opacity: 0.2; 
+  }
+  50% { 
+    opacity: 0.8; 
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

@@ -28,7 +28,7 @@ export default function Hero() {
               {t('heroVisionText')}
             </div>
             <div className={styles.btnGroup}>
-              <a href="#" className={`${styles.btn} ${styles.btnPrimary}`}>
+              <a href="#login" className={`${styles.btn} ${styles.btnPrimary}`}>
                 {t('enterTheLucaverse')}
               </a>
               <button type="button" className={styles.btn} onClick={() => setAccessOpen(true)}>
