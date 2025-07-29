@@ -32,3 +32,4 @@ CLAUDE.md
 # Optional: Ignore output HTML if it's generated and not source
 lucaverse.com.html
 .claude/
+docs/

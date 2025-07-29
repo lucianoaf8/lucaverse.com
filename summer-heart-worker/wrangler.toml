@@ -1,0 +1,6 @@
+name = "summer-heart"
+main = "index.js"
+compatibility_date = "2025-01-29"
+
+# Environment variables (set via wrangler secret put)
+# RESEND_API_KEY = "your-resend-api-key"

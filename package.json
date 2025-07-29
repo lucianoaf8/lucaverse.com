@@ -5,7 +5,10 @@
   "scripts": {
     "dev": "npx kill-port 5155 && node -e \"setTimeout(() => process.exit(0), 2000)\" && vite --port 5155 --host 0.0.0.0 --strictPort --open",
     "build": "vite build",
-    "preview": "npx kill-port 5155 && node -e \"setTimeout(() => process.exit(0), 2000)\" && vite preview --port 5155 --host 0.0.0.0 --strictPort --open"
+    "preview": "npx kill-port 5155 && node -e \"setTimeout(() => process.exit(0), 2000)\" && vite preview --port 5155 --host 0.0.0.0 --strictPort --open",
+    "deploy:auth": "cd lucaverse-auth && npm run deploy",
+    "deploy:forms": "cd summer-heart-worker && npm run deploy",
+    "deploy:workers": "npm run deploy:auth && npm run deploy:forms"
   },
   "dependencies": {
     "i18next": "^25.3.1",
