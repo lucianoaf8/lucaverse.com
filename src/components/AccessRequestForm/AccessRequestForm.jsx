@@ -104,24 +104,17 @@ const AccessRequestForm = ({ isOpen, onClose }) => {
     data.append('website', ''); // Honeypot field
 
     try {
-      console.log('Submitting access request...');
-      
       const response = await fetch('https://summer-heart.lucianoaf8.workers.dev', {
         method: 'POST',
         body: data,
       });
 
-      console.log('Response status:', response.status);
-      console.log('Response ok:', response.ok);
-
       if (response.ok) {
         let result;
         try {
           const text = await response.text();
-          console.log('Response text:', text);
           result = JSON.parse(text);
         } catch (parseError) {
-          console.log('Response is not JSON, treating as success');
           result = { message: 'Your request was submitted successfully!' };
         }
 

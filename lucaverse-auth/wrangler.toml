@@ -1,0 +1,15 @@
+name = "lucaverse-auth"
+main = "src/index.js"
+compatibility_date = "2025-01-29"
+
+[[kv_namespaces]]
+binding = "OAUTH_SESSIONS"
+id = "f9f3d87f37794cad844beae87f635c3f"
+
+[[kv_namespaces]]
+binding = "USER_WHITELIST"
+id = "bcde6e59edd2415fa257834e2daf5e7d"
+
+[vars]
+WORKER_URL = "https://lucaverse-auth.lucianoaf8.workers.dev"
+FRONTEND_URL = "https://lucaverse.com"

@@ -9,12 +9,89 @@ const LucaverseLogin = () => {
   const [hoveredButton, setHoveredButton] = useState(null);
 
   const handleLogin = (provider) => {
+    if (provider === 'Google') {
+      handleGoogleLogin();
+    } else {
+      // Microsoft or other providers - simulate for now
+      setIsLoading(true);
+      setTimeout(() => {
+        setIsLoading(false);
+      }, 2000);
+    }
+  };
+
+  const handleGoogleLogin = () => {
     setIsLoading(true);
-    // Simulate login process
-    setTimeout(() => {
-      console.log(`Logging in with ${provider}`);
+    
+    // OAuth popup window specs
+    const popupWidth = 500;
+    const popupHeight = 600;
+    const left = (window.screen.width / 2) - (popupWidth / 2);
+    const top = (window.screen.height / 2) - (popupHeight / 2);
+    
+    const oauthUrl = 'https://lucaverse-auth.lucianoaf8.workers.dev/auth/google';
+    
+    const popup = window.open(
+      oauthUrl,
+      'googleAuth',
+      `width=${popupWidth},height=${popupHeight},left=${left},top=${top},scrollbars=yes,resizable=yes`
+    );
+
+    
+    if (!popup) {
+      console.error('❌ Popup was blocked!');
       setIsLoading(false);
-    }, 2000);
+      alert('Popup was blocked. Please allow popups for this site.');
+      return;
+    }
+
+    // Timeout ID for cleanup
+    let timeoutId;
+
+    // Listen for messages from the popup
+    const messageHandler = (event) => {
+      // Verify origin for security
+      if (event.origin !== window.location.origin) {
+        return;
+      }
+
+      if (event.data.type === 'OAUTH_SUCCESS') {
+        // Store authentication tokens
+        localStorage.setItem('auth_token', event.data.token);
+        localStorage.setItem('session_id', event.data.sessionId);
+        
+        // Clean up
+        clearTimeout(timeoutId);
+        window.removeEventListener('message', messageHandler);
+        setIsLoading(false);
+        
+        // Redirect to dashboard
+        window.location.hash = 'dashboard';
+        
+      } else if (event.data.type === 'OAUTH_ERROR') {
+        // Handle authentication error
+        console.error('OAuth error:', event.data.error);
+        clearTimeout(timeoutId);
+        window.removeEventListener('message', messageHandler);
+        setIsLoading(false);
+        
+        // Show error message (you can enhance this with proper error UI)
+        alert('Authentication failed. Please try again.');
+      }
+    };
+
+    // Add message listener
+    window.addEventListener('message', messageHandler);
+
+    // Timeout after 5 minutes
+    timeoutId = setTimeout(() => {
+      if (popup && !popup.closed) {
+        popup.close();
+      }
+      window.removeEventListener('message', messageHandler);
+      setIsLoading(false);
+      console.error('OAuth timeout');
+    }, 300000);
   };
 
   return (

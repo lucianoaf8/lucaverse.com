@@ -5,6 +5,13 @@ export default defineConfig({
   base: './',
   plugins: [react()],
   server: {
+    port: 5155,
+    host: true,
+    open: true,
+  },
+  preview: {
+    port: 5155,
+    host: true,
     open: true,
   },
   resolve: {

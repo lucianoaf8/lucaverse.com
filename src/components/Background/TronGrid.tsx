@@ -259,7 +259,6 @@ const SubtleTronGrid = () => (
             const distance = Math.sqrt((cycleA.x - cycleB.x) ** 2 + (cycleA.y - cycleB.y) ** 2);
             
             if (distance < 25) { // Collision threshold
-              console.log(`🔥 COLLISION! ${cycleA.color} vs ${cycleB.color} AI circuit lights`);
               
               // Calculate explosion color based on colliding photon colors
               let explosionColor;
