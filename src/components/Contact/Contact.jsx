@@ -36,7 +36,7 @@ const NotificationToast = ({ show, type, message, onClose }) => {
 };
 
 export default function Contact() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -93,7 +93,7 @@ export default function Contact() {
     // Phase 1: Enhanced data collection
     try {
       // Language detection with better fallbacks
-      const siteLanguage = t.i18n.language || localStorage.getItem('i18nextLng') || 'en';
+      const siteLanguage = i18n.language || localStorage.getItem('i18nextLng') || 'en';
       const browserLanguage = navigator.language || navigator.userLanguage || 'en-US';
       data.append('siteLanguage', siteLanguage);
       data.append('browserLanguage', browserLanguage);
@@ -188,6 +188,12 @@ export default function Contact() {
       console.warn('Error collecting enhanced data:', error);
     }
 
+    // Debug: Log all form data being sent
+    console.log('Form Data being sent:');
+    for (let [key, value] of data.entries()) {
+      console.log(`${key}: ${value}`);
+    }
+
     try {
       const response = await fetch('https://summer-heart.lucianoaf8.workers.dev', {
         method: 'POST',
@@ -222,7 +228,10 @@ export default function Contact() {
       }
       
     } catch (error) {
-      console.error('Network or parsing error:', error);
+      // Only log errors in production
+      if (window.location.hostname !== 'localhost') {
+        console.error('Network or parsing error:', error);
+      }
       
       if (window.location.hostname === 'localhost') {
         showNotification('success', t('contactLocalDev'));

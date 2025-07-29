@@ -370,7 +370,8 @@ export default {
     const allowedOrigins = [
       'https://lucaverse.com',
       'https://www.lucaverse.com',
-      'http://localhost:3000'
+      'http://localhost:3000',
+      'http://localhost:5155'
     ];
   
     return {
