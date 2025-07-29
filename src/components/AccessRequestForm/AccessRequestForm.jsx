@@ -1,5 +1,6 @@
 // src/components/AccessRequestForm/AccessRequestForm.js
 import React, { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import styles from './AccessRequestForm.module.css';
 
 // Custom Notification Component
@@ -36,6 +37,7 @@ const NotificationToast = ({ show, type, message, onClose }) => {
 };
 
 const AccessRequestForm = ({ isOpen, onClose }) => {
+  const { t } = useTranslation();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -90,7 +92,7 @@ const AccessRequestForm = ({ isOpen, onClose }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    showNotification('loading', 'Submitting your access request...');
+    showNotification('loading', t('submittingAccessRequest'));
 
     const data = new FormData();
     data.append('name', formData.name);
@@ -123,7 +125,7 @@ const AccessRequestForm = ({ isOpen, onClose }) => {
           result = { message: 'Your request was submitted successfully!' };
         }
 
-        showNotification('success', result.message || 'Thanks for your interest to be part of Lucaverse, the boss will get back to you soon!');
+        showNotification('success', result.message || t('accessRequestSuccess'));
         
         // Reset form after successful submission
         setTimeout(() => {
@@ -134,21 +136,21 @@ const AccessRequestForm = ({ isOpen, onClose }) => {
         
       } else {
         console.error('Response not ok:', response.status, response.statusText);
-        showNotification('error', 'Request submitted! If you don\'t receive a confirmation email, please try again.');
+        showNotification('error', t('accessRequestError'));
       }
       
     } catch (error) {
       console.error('Network or parsing error:', error);
       
       if (window.location.hostname === 'localhost') {
-        showNotification('success', 'Thanks for your interest! (Local development - the boss will get back to you soon)');
+        showNotification('success', t('accessRequestLocalDev'));
         setTimeout(() => {
           setFormData({ name: '', email: '', reason: '' });
           onClose();
           hideNotification();
         }, 3000);
       } else {
-        showNotification('error', 'An error occurred. Please try again later.');
+        showNotification('error', t('genericError'));
       }
     } finally {
       setLoading(false);
@@ -170,13 +172,13 @@ const AccessRequestForm = ({ isOpen, onClose }) => {
         <div className={styles['access-form-overlay']}>
           <div className={styles['access-form-container']} ref={formRef}>
         <div className={styles['form-header']}>
-          <h2 className="font-orbitron text-xl text-[color:var(--neon-blue)] text-glow-blue">Request Access</h2>
+          <h2 className="font-orbitron text-xl text-[color:var(--neon-blue)] text-glow-blue">{t('requestAccess')}</h2>
           <button className={styles['close-button']} onClick={onClose}>×</button>
         </div>
 
         <form onSubmit={handleSubmit} className={styles['access-request-form']}>
           <div className={styles['form-group']}>
-            <label htmlFor="name">Your Name</label>
+            <label htmlFor="name">{t('yourName')}</label>
             <input
               ref={firstInputRef}
               type="text"
@@ -185,12 +187,12 @@ const AccessRequestForm = ({ isOpen, onClose }) => {
               value={formData.name}
               onChange={handleChange}
               required
-              placeholder="Enter your name"
+              placeholder={t('enterYourName')}
             />
           </div>
 
           <div className={styles['form-group']}>
-            <label htmlFor="email">Email Address</label>
+            <label htmlFor="email">{t('emailAddress')}</label>
             <input
               type="email"
               id="email"
@@ -198,12 +200,12 @@ const AccessRequestForm = ({ isOpen, onClose }) => {
               value={formData.email}
               onChange={handleChange}
               required
-              placeholder="you@example.com"
+              placeholder={t('yourEmailPlaceholder')}
             />
           </div>
 
           <div className={styles['form-group']}>
-            <label htmlFor="reason">Why do you want access?</label>
+            <label htmlFor="reason">{t('accessReason')}</label>
             <textarea
               id="reason"
               name="reason"
@@ -211,7 +213,7 @@ const AccessRequestForm = ({ isOpen, onClose }) => {
               onChange={handleChange}
               rows="3"
               required
-              placeholder="Briefly explain why you'd like to enter the Lucaverse..."
+              placeholder={t('accessReasonPlaceholder')}
             />
           </div>
 
@@ -219,7 +221,7 @@ const AccessRequestForm = ({ isOpen, onClose }) => {
           <input type="text" name="website" style={{ display: 'none' }} tabIndex="-1" autoComplete="off" />
 
           <button type="submit" className={styles['submit-button']} disabled={loading}>
-            {loading ? 'Submitting...' : 'Submit Request'}
+            {loading ? t('submitting') : t('submitRequest')}
           </button>
         </form>
       </div>

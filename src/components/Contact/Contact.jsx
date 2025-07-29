@@ -62,7 +62,7 @@ export default function Contact() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    showNotification('loading', 'Sending your message...');
+    showNotification('loading', t('sendingMessage'));
 
     const data = new FormData();
     data.append('name', formData.name);
@@ -95,7 +95,7 @@ export default function Contact() {
           result = { message: 'Message sent successfully!' };
         }
 
-        showNotification('success', result.message || 'Thanks for your message, Luca will get back to you shortly!');
+        showNotification('success', result.message || t('contactSuccess'));
         
         // Reset form after successful submission
         setTimeout(() => {
@@ -110,14 +110,14 @@ export default function Contact() {
         
       } else {
         console.error('Response not ok:', response.status, response.statusText);
-        showNotification('error', 'Form submitted! If you don\'t receive a confirmation email, please try again.');
+        showNotification('error', t('contactError'));
       }
       
     } catch (error) {
       console.error('Network or parsing error:', error);
       
       if (window.location.hostname === 'localhost') {
-        showNotification('success', 'Thanks for your message! (Local development - Luca will get back to you shortly)');
+        showNotification('success', t('contactLocalDev'));
         setTimeout(() => {
           setFormData({
             name: '',
@@ -128,7 +128,7 @@ export default function Contact() {
           hideNotification();
         }, 3000);
       } else {
-        showNotification('error', 'An error occurred. Please try again later.');
+        showNotification('error', t('genericError'));
       }
     } finally {
       setLoading(false);

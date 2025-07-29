@@ -123,7 +123,31 @@ i18n
             promptEngineering: 'Prompt Engineering',
             llm: 'LLM',
             validation: 'Validation'
-          }
+          },
+          // Access Request Form - New Keys
+          requestAccess: "Request Access",
+          yourName: "Your Name", 
+          enterYourName: "Enter your name",
+          emailAddress: "Email Address",
+          accessReason: "Why do you want access?",
+            accessReasonPlaceholder: "Briefly explain why you'd like to enter the Lucaverse...",
+          submitting: "Submitting...",
+          submitRequest: "Submit Request",
+          
+          // Access Request Notifications
+          submittingAccessRequest: "Submitting your access request...",
+          accessRequestSuccess: "Thanks for your interest to be part of Lucaverse, the boss will get back to you soon!",
+          accessRequestError: "Request submitted! If you don't receive a confirmation email, please try again.",
+          accessRequestLocalDev: "Thanks for your interest! (Local development - the boss will get back to you soon)",
+          
+          // Contact Form Notifications  
+          sendingMessage: "Sending your message...",
+          contactSuccess: "Thanks for your message, Luca will get back to you shortly!",
+          contactError: "Form submitted! If you don't receive a confirmation email, please try again.",
+          contactLocalDev: "Thanks for your message! (Local development - Luca will get back to you shortly)",
+          
+          // Generic Error
+          genericError: "An error occurred. Please try again later."
         }
       },
       pt: {
@@ -237,7 +261,31 @@ i18n
             promptEngineering: 'Engenharia de Prompt',
             llm: 'LLM',
             validation: 'Validação'
-          }
+          },
+          // Access Request Form - New Keys
+          requestAccess: "Solicitar Acesso",
+          yourName: "Seu Nome",
+          enterYourName: "Digite seu nome", 
+          emailAddress: "Endereço de Email",
+          accessReason: "Por que você quer acesso?",
+          accessReasonPlaceholder: "Explique brevemente por que gostaria de entrar no Lucaverse...",
+          submitting: "Enviando...",
+          submitRequest: "Enviar Solicitação",
+          
+          // Access Request Notifications
+          submittingAccessRequest: "Enviando sua solicitação de acesso...",
+          accessRequestSuccess: "Obrigado pelo seu interesse em fazer parte do Lucaverse, o chefe entrará em contato em breve!",
+          accessRequestError: "Solicitação enviada! Se você não receber um email de confirmação, tente novamente.",
+          accessRequestLocalDev: "Obrigado pelo seu interesse! (Desenvolvimento local - o chefe entrará em contato em breve)",
+          
+          // Contact Form Notifications
+          sendingMessage: "Enviando sua mensagem...",
+          contactSuccess: "Obrigado pela sua mensagem, Luca entrará em contato em breve!",
+          contactError: "Formulário enviado! Se você não receber um email de confirmação, tente novamente.",
+          contactLocalDev: "Obrigado pela sua mensagem! (Desenvolvimento local - Luca entrará em contato em breve)",
+          
+          // Generic Error
+          genericError: "Ocorreu um erro. Tente novamente mais tarde."
         }
       }
     }
