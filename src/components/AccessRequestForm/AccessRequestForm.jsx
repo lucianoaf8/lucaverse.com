@@ -125,7 +125,7 @@ const AccessRequestForm = ({ isOpen, onClose }) => {
           result = { message: 'Your request was submitted successfully!' };
         }
 
-        showNotification('success', result.message || t('accessRequestSuccess'));
+        showNotification('success', t('accessRequestSuccess'));
         
         // Reset form after successful submission
         setTimeout(() => {

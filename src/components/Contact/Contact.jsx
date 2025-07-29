@@ -95,7 +95,7 @@ export default function Contact() {
           result = { message: 'Message sent successfully!' };
         }
 
-        showNotification('success', result.message || t('contactSuccess'));
+        showNotification('success', t('contactSuccess'));
         
         // Reset form after successful submission
         setTimeout(() => {
