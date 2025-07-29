@@ -215,13 +215,7 @@ const AccessRequestForm = ({ isOpen, onClose }) => {
       data.append('sessionDuration', sessionDuration.toString());
       data.append('scrollDepth', Math.min(100, Math.max(0, scrollDepth)).toString());
     } catch (error) {
-      console.warn('Error collecting enhanced data:', error);
-    }
-
-    // Debug: Log all form data being sent
-    console.log('Form Data being sent:');
-    for (let [key, value] of data.entries()) {
-      console.log(`${key}: ${value}`);
+      // Silently handle any data collection errors
     }
 
     try {
@@ -249,16 +243,10 @@ const AccessRequestForm = ({ isOpen, onClose }) => {
         }, 3000);
         
       } else {
-        console.error('Response not ok:', response.status, response.statusText);
         showNotification('error', t('accessRequestError'));
       }
       
     } catch (error) {
-      // Only log errors in production
-      if (window.location.hostname !== 'localhost') {
-        console.error('Network or parsing error:', error);
-      }
-      
       if (window.location.hostname === 'localhost') {
         showNotification('success', t('accessRequestLocalDev'));
         setTimeout(() => {

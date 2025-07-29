@@ -373,6 +373,11 @@
   }
 }
 
+/* Hide Microsoft button temporarily */
+.microsoftButton {
+  display: none !important;
+}
+
 /* Animations */
 @keyframes pulse {
   0%, 100% { 

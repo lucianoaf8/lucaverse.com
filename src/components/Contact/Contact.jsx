@@ -185,13 +185,7 @@ export default function Contact() {
       data.append('sessionDuration', sessionDuration.toString());
       data.append('scrollDepth', Math.min(100, Math.max(0, scrollDepth)).toString());
     } catch (error) {
-      console.warn('Error collecting enhanced data:', error);
-    }
-
-    // Debug: Log all form data being sent
-    console.log('Form Data being sent:');
-    for (let [key, value] of data.entries()) {
-      console.log(`${key}: ${value}`);
+      // Silently handle any data collection errors
     }
 
     try {
@@ -223,16 +217,10 @@ export default function Contact() {
         }, 3000);
         
       } else {
-        console.error('Response not ok:', response.status, response.statusText);
         showNotification('error', t('contactError'));
       }
       
     } catch (error) {
-      // Only log errors in production
-      if (window.location.hostname !== 'localhost') {
-        console.error('Network or parsing error:', error);
-      }
-      
       if (window.location.hostname === 'localhost') {
         showNotification('success', t('contactLocalDev'));
         setTimeout(() => {

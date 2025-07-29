@@ -104,9 +104,6 @@ export default {
           return new Response('Failed to send email.', { status: 500, headers: corsHeaders(request) });
         }
   
-        // ✨ NEW: Send confirmation email to user
-        await sendUserConfirmation(env.RESEND_API_KEY, email, name, formType);
-  
         return new Response(JSON.stringify({
           success: true,
           message: getSuccessMessage(formType)  // ✨ NEW: Dynamic success messages
@@ -282,86 +279,11 @@ export default {
     return { emailSubject, html, text };
   }
   
-  // ✨ NEW: Send confirmation email to user
-  async function sendUserConfirmation(apiKey, userEmail, name, formType) {
-    const isAccessRequest = formType === 'access_request';
-    
-    try {
-      await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          to: [userEmail],
-          from: 'contact@lucaverse.com',
-          subject: isAccessRequest 
-            ? '🔐 Access Request Received - Lucaverse' 
-            : '✅ Message Received - Lucaverse Portfolio',
-          html: `
-            <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background: #0a0a0a; color: #ffffff; border-radius: 12px; overflow: hidden;">
-              <div style="background: linear-gradient(135deg, ${isAccessRequest ? '#001a2e, #003366' : '#1a2e00, #336600'}); padding: 25px; text-align: center;">
-                <h1 style="color: ${isAccessRequest ? '#00ccff' : '#66ff00'}; margin: 0; font-size: 22px;">
-                  ${isAccessRequest ? '🌌 Request Confirmed' : '📧 Message Confirmed'}
-                </h1>
-              </div>
-              
-              <div style="padding: 30px;">
-                <p style="font-size: 16px; line-height: 1.6;">Hi ${name},</p>
-                
-                <p style="font-size: 16px; line-height: 1.6;">
-                  Thanks for ${isAccessRequest ? 'requesting access to the Lucaverse' : 'reaching out'}! 
-                  Your ${isAccessRequest ? 'request' : 'message'} has been received and I'll get back to you within 24-48 hours.
-                </p>
-                
-                ${isAccessRequest ? `
-                <div style="background: #1a1a1a; padding: 20px; border-radius: 8px; border-left: 5px solid #00ccff; margin: 20px 0;">
-                  <p style="margin: 0; color: #00ccff; font-weight: bold;">What's next?</p>
-                  <p style="margin: 10px 0 0 0; line-height: 1.5;">I'll review your access request and send you entry details if approved. This usually takes 24-48 hours.</p>
-                </div>
-                ` : ''}
-                
-                <p style="font-size: 16px; margin-top: 25px;">
-                  Best regards,<br>
-                  <strong style="color: ${isAccessRequest ? '#00ccff' : '#66ff00'};">Luciano</strong>
-                </p>
-                
-                <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #333333; text-align: center;">
-                  <p style="color: #666666; font-size: 12px; margin: 0;">
-                    This is an automated confirmation from lucaverse.com
-                  </p>
-                </div>
-              </div>
-            </div>
-          `,
-          text: `
-  Hi ${name},
-  
-  Thanks for ${isAccessRequest ? 'requesting access to the Lucaverse' : 'reaching out'}! 
-  Your ${isAccessRequest ? 'request' : 'message'} has been received and I'll get back to you within 24-48 hours.
-  
-  ${isAccessRequest ? 'I\'ll review your access request and send you entry details if approved.' : ''}
-  
-  Best regards,
-  Luciano
-  
-  ---
-  This is an automated confirmation from lucaverse.com
-          `
-        }),
-      });
-    } catch (error) {
-      console.error('Failed to send confirmation email:', error);
-      // Don't throw - confirmation emails are non-critical
-    }
-  }
-  
   // ✨ NEW: Dynamic success messages
   function getSuccessMessage(formType) {
     return formType === 'access_request'
-      ? 'Access request submitted successfully! Check your email for confirmation.'
-      : 'Message sent successfully! Check your email for confirmation.';
+      ? 'Access request submitted successfully!'
+      : 'Message sent successfully!';
   }
   
   // --- CORS helper (unchanged - keeping your existing setup)

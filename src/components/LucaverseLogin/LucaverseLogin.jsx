@@ -60,23 +60,38 @@ const LucaverseLogin = () => {
         localStorage.setItem('auth_token', event.data.token);
         localStorage.setItem('session_id', event.data.sessionId);
         
+        // Close the popup first
+        if (popup && !popup.closed) {
+          popup.close();
+        }
+        
         // Clean up
         clearTimeout(timeoutId);
         window.removeEventListener('message', messageHandler);
-        setIsLoading(false);
         
-        // Redirect to dashboard
-        window.location.hash = 'dashboard';
+        // Wait a moment for popup to fully close, then redirect
+        setTimeout(() => {
+          setIsLoading(false);
+          window.location.hash = 'dashboard';
+        }, 500);
         
       } else if (event.data.type === 'OAUTH_ERROR') {
         // Handle authentication error
         console.error('OAuth error:', event.data.error);
+        
+        // Close the popup first
+        if (popup && !popup.closed) {
+          popup.close();
+        }
+        
         clearTimeout(timeoutId);
         window.removeEventListener('message', messageHandler);
-        setIsLoading(false);
         
-        // Show error message (you can enhance this with proper error UI)
-        alert('Authentication failed. Please try again.');
+        // Wait a moment for popup to fully close, then show error
+        setTimeout(() => {
+          setIsLoading(false);
+          alert('Authentication failed. Please try again.');
+        }, 300);
       }
     };
 
@@ -172,13 +187,13 @@ const LucaverseLogin = () => {
               </div>
             </button>
 
-            {/* Microsoft Login Button */}
+            {/* Microsoft Login Button - Hidden for now */}
             <button
               onClick={() => handleLogin('Microsoft')}
               onMouseEnter={() => setHoveredButton('microsoft')}
               onMouseLeave={() => setHoveredButton(null)}
               disabled={isLoading}
-              className={styles.loginButton}
+              className={`${styles.loginButton} ${styles.microsoftButton}`}
             >
               <div 
                 className={`${styles.buttonContainer} ${styles.microsoft} ${
