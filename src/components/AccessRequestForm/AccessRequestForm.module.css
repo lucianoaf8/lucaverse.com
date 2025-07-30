@@ -239,10 +239,36 @@
     to { transform: rotate(360deg); }
 }
 
+/* LUCI-LOW-003: Input validation error styles */
+.input-error {
+    border-color: #ff6b6b !important;
+    box-shadow: 0 0 0 2px rgba(255, 107, 107, 0.2) !important;
+}
+
+.error-message {
+    color: #ff6b6b;
+    font-size: 12px;
+    margin-top: 4px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 500;
+}
+
+.error-message::before {
+    content: "⚠";
+    font-size: 10px;
+}
+
 /* Mobile responsive */
 @media (max-width: 768px) {
     .toast {
         min-width: 300px;
         max-width: calc(100vw - 40px);
+    }
+    
+    .error-message {
+        font-size: 11px;
     }
 }

@@ -1,14 +1,18 @@
 /**
  * Advanced Spam Protection Utility
- * Implements LUCI-008 security requirements:
+ * Implements LUCI-008 and LUCI-MED-001 security requirements:
  * - Multiple honeypot fields
- * - Behavioral analysis
- * - Rate limiting with IP tracking
+ * - Behavioral analysis with user interaction tracking
+ * - Enhanced rate limiting with client fingerprinting (LUCI-MED-001)
+ * - Dual-layer rate limiting (global + fingerprint-based)
+ * - SessionStorage-based tracking for security
  * - Form interaction validation
  * - Time-based submission analysis
+ * - Client fingerprinting for enhanced bot detection
  */
 
 import { logger } from './logger.js';
+import { recordSecurityEvent, SECURITY_EVENT_TYPES, ALERT_LEVELS } from './securityMonitoring.js';
 
 // Configuration constants
 const MIN_FORM_TIME = 3000; // Minimum 3 seconds to fill form (humans need time)
@@ -49,17 +53,57 @@ const HONEYPOT_FIELDS = [
 ];
 
 /**
- * Rate limiting storage using sessionStorage with fallback
+ * Enhanced rate limiting with client fingerprinting
+ * LUCI-MED-001: Implements robust client-side rate limiting
  */
 class RateLimiter {
   constructor() {
     this.storageKey = 'spam_protection_submissions';
+    this.fingerprintKey = 'client_fingerprint_submissions';
     this.fallbackStore = new Map();
+    this.clientFingerprint = this.generateClientFingerprint();
+  }
+
+  /**
+   * Generate a client fingerprint for enhanced rate limiting
+   */
+  generateClientFingerprint() {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    ctx.textBaseline = 'top';
+    ctx.font = '14px Arial';
+    ctx.fillText('Client fingerprint', 2, 2);
+    
+    const fingerprint = {
+      userAgent: navigator.userAgent.substring(0, 100),
+      language: navigator.language,
+      platform: navigator.platform,
+      screenResolution: `${screen.width}x${screen.height}`,
+      colorDepth: screen.colorDepth,
+      timezoneOffset: new Date().getTimezoneOffset(),
+      canvasFingerprint: canvas.toDataURL().substring(0, 50),
+      hardwareConcurrency: navigator.hardwareConcurrency || 0,
+      maxTouchPoints: navigator.maxTouchPoints || 0,
+      cookieEnabled: navigator.cookieEnabled,
+      doNotTrack: navigator.doNotTrack || 'unknown'
+    };
+    
+    // Create a hash of the fingerprint
+    const fingerprintString = JSON.stringify(fingerprint);
+    let hash = 0;
+    for (let i = 0; i < fingerprintString.length; i++) {
+      const char = fingerprintString.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    
+    return Math.abs(hash).toString(36);
   }
 
   getStorageItem(key) {
     try {
-      return sessionStorage.getItem(key) || localStorage.getItem(key);
+      // Prefer sessionStorage for enhanced security (LUCI-MED-001)
+      return sessionStorage.getItem(key) || this.fallbackStore.get(key);
     } catch (e) {
       logger.warn('Storage access failed, using memory fallback');
       return this.fallbackStore.get(key);
@@ -68,8 +112,9 @@ class RateLimiter {
 
   setStorageItem(key, value) {
     try {
+      // Primary storage in sessionStorage (more secure, per-session)
       sessionStorage.setItem(key, value);
-      localStorage.setItem(key, value);
+      this.fallbackStore.set(key, value);
     } catch (e) {
       logger.warn('Storage write failed, using memory fallback');
       this.fallbackStore.set(key, value);
@@ -86,45 +131,160 @@ class RateLimiter {
     }
   }
 
+  getFingerprintHistory() {
+    try {
+      const stored = this.getStorageItem(this.fingerprintKey);
+      return stored ? JSON.parse(stored) : {};
+    } catch (e) {
+      logger.warn('Failed to parse fingerprint history:', e);
+      return {};
+    }
+  }
+
   recordSubmission() {
     const now = Date.now();
-    const history = this.getSubmissionHistory();
     
-    // Add current submission
+    // Record global submission history
+    const history = this.getSubmissionHistory();
     history.push(now);
     
     // Clean old submissions outside the window
     const cutoff = now - RATE_LIMIT_WINDOW;
     const recentSubmissions = history.filter(timestamp => timestamp > cutoff);
-    
     this.setStorageItem(this.storageKey, JSON.stringify(recentSubmissions));
+    
+    // Record fingerprint-specific history
+    const fingerprintHistory = this.getFingerprintHistory();
+    if (!fingerprintHistory[this.clientFingerprint]) {
+      fingerprintHistory[this.clientFingerprint] = [];
+    }
+    
+    fingerprintHistory[this.clientFingerprint].push(now);
+    
+    // Clean old fingerprint submissions
+    Object.keys(fingerprintHistory).forEach(fp => {
+      fingerprintHistory[fp] = fingerprintHistory[fp].filter(timestamp => timestamp > cutoff);
+      // Remove empty fingerprint entries
+      if (fingerprintHistory[fp].length === 0) {
+        delete fingerprintHistory[fp];
+      }
+    });
+    
+    this.setStorageItem(this.fingerprintKey, JSON.stringify(fingerprintHistory));
     return recentSubmissions;
   }
 
   isRateLimited() {
+    const now = Date.now();
+    const cutoff = now - RATE_LIMIT_WINDOW;
+    
+    // Check global rate limit
     const recentSubmissions = this.getSubmissionHistory();
-    const cutoff = Date.now() - RATE_LIMIT_WINDOW;
     const validSubmissions = recentSubmissions.filter(timestamp => timestamp > cutoff);
     
-    return validSubmissions.length >= SUBMISSION_RATE_LIMIT;
+    if (validSubmissions.length >= SUBMISSION_RATE_LIMIT) {
+      return true;
+    }
+    
+    // Check fingerprint-specific rate limit (more restrictive)
+    const fingerprintHistory = this.getFingerprintHistory();
+    const fingerprintSubmissions = fingerprintHistory[this.clientFingerprint] || [];
+    const validFingerprintSubmissions = fingerprintSubmissions.filter(timestamp => timestamp > cutoff);
+    
+    // Fingerprint gets lower limit (3 vs 5)
+    const FINGERPRINT_LIMIT = Math.floor(SUBMISSION_RATE_LIMIT * 0.6);
+    return validFingerprintSubmissions.length >= FINGERPRINT_LIMIT;
   }
 
   getRemainingAttempts() {
-    const recentSubmissions = this.getSubmissionHistory();
-    const cutoff = Date.now() - RATE_LIMIT_WINDOW;
-    const validSubmissions = recentSubmissions.filter(timestamp => timestamp > cutoff);
+    const now = Date.now();
+    const cutoff = now - RATE_LIMIT_WINDOW;
     
-    return Math.max(0, SUBMISSION_RATE_LIMIT - validSubmissions.length);
+    // Check global limit
+    const recentSubmissions = this.getSubmissionHistory();
+    const validSubmissions = recentSubmissions.filter(timestamp => timestamp > cutoff);
+    const globalRemaining = Math.max(0, SUBMISSION_RATE_LIMIT - validSubmissions.length);
+    
+    // Check fingerprint limit
+    const fingerprintHistory = this.getFingerprintHistory();
+    const fingerprintSubmissions = fingerprintHistory[this.clientFingerprint] || [];
+    const validFingerprintSubmissions = fingerprintSubmissions.filter(timestamp => timestamp > cutoff);
+    const FINGERPRINT_LIMIT = Math.floor(SUBMISSION_RATE_LIMIT * 0.6);
+    const fingerprintRemaining = Math.max(0, FINGERPRINT_LIMIT - validFingerprintSubmissions.length);
+    
+    // Return the more restrictive limit
+    return Math.min(globalRemaining, fingerprintRemaining);
   }
 
   getNextAvailableTime() {
+    const now = Date.now();
+    const cutoff = now - RATE_LIMIT_WINDOW;
+    
+    // Check global submissions
     const recentSubmissions = this.getSubmissionHistory();
-    if (recentSubmissions.length < SUBMISSION_RATE_LIMIT) {
-      return Date.now();
+    const validSubmissions = recentSubmissions.filter(timestamp => timestamp > cutoff);
+    
+    let nextGlobalTime = now;
+    if (validSubmissions.length >= SUBMISSION_RATE_LIMIT) {
+      const oldestInWindow = Math.min(...validSubmissions);
+      nextGlobalTime = oldestInWindow + RATE_LIMIT_WINDOW;
     }
     
-    const oldestInWindow = Math.min(...recentSubmissions);
-    return oldestInWindow + RATE_LIMIT_WINDOW;
+    // Check fingerprint submissions
+    const fingerprintHistory = this.getFingerprintHistory();
+    const fingerprintSubmissions = fingerprintHistory[this.clientFingerprint] || [];
+    const validFingerprintSubmissions = fingerprintSubmissions.filter(timestamp => timestamp > cutoff);
+    const FINGERPRINT_LIMIT = Math.floor(SUBMISSION_RATE_LIMIT * 0.6);
+    
+    let nextFingerprintTime = now;
+    if (validFingerprintSubmissions.length >= FINGERPRINT_LIMIT) {
+      const oldestFingerprintInWindow = Math.min(...validFingerprintSubmissions);
+      nextFingerprintTime = oldestFingerprintInWindow + RATE_LIMIT_WINDOW;
+    }
+    
+    // Return the later time (more restrictive)
+    return Math.max(nextGlobalTime, nextFingerprintTime);
+  }
+
+  /**
+   * Get detailed rate limiting information for debugging and user feedback
+   */
+  getRateLimitInfo() {
+    const now = Date.now();
+    const cutoff = now - RATE_LIMIT_WINDOW;
+    
+    // Global submissions
+    const recentSubmissions = this.getSubmissionHistory();
+    const validSubmissions = recentSubmissions.filter(timestamp => timestamp > cutoff);
+    
+    // Fingerprint submissions
+    const fingerprintHistory = this.getFingerprintHistory();
+    const fingerprintSubmissions = fingerprintHistory[this.clientFingerprint] || [];
+    const validFingerprintSubmissions = fingerprintSubmissions.filter(timestamp => timestamp > cutoff);
+    
+    const FINGERPRINT_LIMIT = Math.floor(SUBMISSION_RATE_LIMIT * 0.6);
+    
+    return {
+      clientFingerprint: this.clientFingerprint,
+      global: {
+        current: validSubmissions.length,
+        limit: SUBMISSION_RATE_LIMIT,
+        remaining: Math.max(0, SUBMISSION_RATE_LIMIT - validSubmissions.length),
+        isLimited: validSubmissions.length >= SUBMISSION_RATE_LIMIT
+      },
+      fingerprint: {
+        current: validFingerprintSubmissions.length,
+        limit: FINGERPRINT_LIMIT,
+        remaining: Math.max(0, FINGERPRINT_LIMIT - validFingerprintSubmissions.length),
+        isLimited: validFingerprintSubmissions.length >= FINGERPRINT_LIMIT
+      },
+      overall: {
+        isLimited: this.isRateLimited(),
+        remaining: this.getRemainingAttempts(),
+        nextAvailable: this.getNextAvailableTime(),
+        windowMs: RATE_LIMIT_WINDOW
+      }
+    };
   }
 }
 
@@ -314,6 +474,12 @@ export class SpamProtection {
     
     if (honeypotFilled) {
       logger.security('Honeypot trap triggered', { honeypotResults });
+      // LUCI-LOW-004: Record security event
+      recordSecurityEvent(SECURITY_EVENT_TYPES.SPAM_ATTEMPT, {
+        reason: 'honeypot_filled',
+        details: honeypotResults
+      }, ALERT_LEVELS.HIGH);
+      
       return {
         passed: false,
         reason: 'honeypot_filled',
@@ -362,29 +528,47 @@ export class SpamProtection {
 
   /**
    * Validate submission rate limits
+   * LUCI-MED-001: Enhanced rate limiting with fingerprinting
    */
   validateRateLimit() {
+    const rateLimitInfo = this.rateLimiter.getRateLimitInfo();
+    
     if (this.rateLimiter.isRateLimited()) {
-      const remaining = this.rateLimiter.getRemainingAttempts();
       const nextAvailable = this.rateLimiter.getNextAvailableTime();
       
       logger.security('Rate limit exceeded', { 
-        remaining, 
+        rateLimitInfo,
         nextAvailable: new Date(nextAvailable).toISOString() 
       });
+      
+      // LUCI-LOW-004: Record security event
+      recordSecurityEvent(SECURITY_EVENT_TYPES.RATE_LIMIT_HIT, {
+        rateLimitInfo,
+        nextAvailable: nextAvailable,
+        clientFingerprint: rateLimitInfo.clientFingerprint.substring(0, 8)
+      }, ALERT_LEVELS.MEDIUM);
       
       return {
         passed: false,
         reason: 'rate_limited',
-        remaining,
+        remaining: rateLimitInfo.overall.remaining,
         nextAvailable,
-        retryAfter: Math.ceil((nextAvailable - Date.now()) / 1000)
+        retryAfter: Math.ceil((nextAvailable - Date.now()) / 1000),
+        details: {
+          globalLimited: rateLimitInfo.global.isLimited,
+          fingerprintLimited: rateLimitInfo.fingerprint.isLimited,
+          clientFingerprint: rateLimitInfo.clientFingerprint.substring(0, 8) + '...' // Partial for logging
+        }
       };
     }
 
     return {
       passed: true,
-      remaining: this.rateLimiter.getRemainingAttempts()
+      remaining: rateLimitInfo.overall.remaining,
+      details: {
+        globalRemaining: rateLimitInfo.global.remaining,
+        fingerprintRemaining: rateLimitInfo.fingerprint.remaining
+      }
     };
   }
 

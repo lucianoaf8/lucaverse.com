@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { logger } from '../utils/logger.js';
+import sessionManager from '../utils/sessionManager.js';
 
 export const useAuth = () => {
   const [user, setUser] = useState(null);
@@ -7,16 +8,8 @@ export const useAuth = () => {
 
   useEffect(() => {
     const checkAuth = async () => {
-      // Check if there are tokens in URL params (legacy support - should be removed)
-      const urlParams = new URLSearchParams(window.location.search);
-      const token = urlParams.get('token');
-      const sessionId = urlParams.get('session');
-      
-      if (token && sessionId) {
-        // If tokens are in URL, redirect to server endpoint to set secure cookies
-        window.location.href = `https://lucaverse-auth.lucianoaf8.workers.dev/auth/set-cookies?token=${encodeURIComponent(token)}&session=${encodeURIComponent(sessionId)}&redirect=${encodeURIComponent(window.location.origin + window.location.pathname)}`;
-        return;
-      }
+      // REMOVED: Legacy URL token handling for security (LUCI-HIGH-002)
+      // No longer check for tokens in URL parameters to prevent token leakage
       
       // Verify authentication status via API call (cookies will be sent automatically)
       try {
@@ -35,6 +28,9 @@ export const useAuth = () => {
           const result = await response.json();
           if (result.valid && result.user) {
             setUser(result.user);
+            
+            // Initialize session management for authenticated users
+            await sessionManager.initialize();
           }
         }
       } catch (error) {
@@ -49,6 +45,9 @@ export const useAuth = () => {
 
   const logout = async () => {
     try {
+      // Cleanup session management
+      sessionManager.cleanup();
+      
       await fetch('https://lucaverse-auth.lucianoaf8.workers.dev/auth/logout', {
         method: 'POST',
         credentials: 'include', // Important: this sends cookies with the request

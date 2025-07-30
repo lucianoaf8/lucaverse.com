@@ -5,6 +5,7 @@ import { httpClient, handleApiResponse } from '../../utils/httpClient.js';
 import { logger } from '../../utils/logger.js';
 import { SpamProtection } from '../../utils/spamProtection.js';
 import { csrfProtection } from '../../utils/csrfProtection.js';
+import { ValidationSchemas } from '../../utils/inputValidation.js';
 import styles from './AccessRequestForm.module.css';
 
 // Custom Notification Component
@@ -60,6 +61,10 @@ const AccessRequestForm = ({ isOpen, onClose }) => {
   
   // Enhanced spam protection
   const [spamProtection] = useState(() => new SpamProtection(formStartTime));
+  
+  // LUCI-LOW-003: Input validation state
+  const [validationErrors, setValidationErrors] = useState({});
+  const [isFormValid, setIsFormValid] = useState(false);
 
   const showNotification = (type, message) => {
     setNotification({ show: true, type, message });
@@ -67,6 +72,34 @@ const AccessRequestForm = ({ isOpen, onClose }) => {
 
   const hideNotification = () => {
     setNotification({ show: false, type: '', message: '' });
+  };
+
+  // LUCI-LOW-003: Enhanced input validation
+  const validateFormData = (data) => {
+    const validationResult = ValidationSchemas.contactForm.validate({
+      name: data.name,
+      email: data.email,
+      message: data.reason // Map 'reason' to 'message' for validation
+    });
+    
+    const errors = {};
+    let formValid = true;
+    
+    if (!validationResult.isValid) {
+      for (const [fieldName, fieldResult] of Object.entries(validationResult.fields)) {
+        if (!fieldResult.isValid) {
+          // Map back from 'message' to 'reason' for display
+          const displayFieldName = fieldName === 'message' ? 'reason' : fieldName;
+          errors[displayFieldName] = fieldResult.errors[0]; // Show first error
+          formValid = false;
+        }
+      }
+    }
+    
+    setValidationErrors(errors);
+    setIsFormValid(formValid);
+    
+    return validationResult;
   };
 
   useEffect(() => {
@@ -108,12 +141,16 @@ const AccessRequestForm = ({ isOpen, onClose }) => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    const newFormData = { ...formData, [name]: value };
+    setFormData(newFormData);
     
     // Track modified fields
     if (!fieldsModified.includes(name)) {
       setFieldsModified(prev => [...prev, name]);
     }
+    
+    // LUCI-LOW-003: Validate form data on change
+    validateFormData(newFormData);
   };
   
   const handleFieldFocus = (fieldName) => {
@@ -126,6 +163,15 @@ const AccessRequestForm = ({ isOpen, onClose }) => {
     e.preventDefault();
     setLoading(true);
     showNotification('loading', t('submittingAccessRequest'));
+
+    // LUCI-LOW-003: Enhanced input validation
+    const inputValidation = validateFormData(formData);
+    if (!inputValidation.isValid) {
+      const firstError = Object.values(validationErrors)[0];
+      showNotification('error', firstError || 'Please check your input and try again.');
+      setLoading(false);
+      return;
+    }
 
     // Enhanced spam protection validation
     const spamValidation = await spamProtection.validateSubmission(formData);
@@ -382,7 +428,11 @@ const AccessRequestForm = ({ isOpen, onClose }) => {
               onFocus={() => handleFieldFocus('name')}
               required
               placeholder={t('enterYourName')}
+              className={validationErrors.name ? styles['input-error'] : ''}
             />
+            {validationErrors.name && (
+              <div className={styles['error-message']}>{validationErrors.name}</div>
+            )}
           </div>
 
           <div className={styles['form-group']}>
@@ -396,7 +446,11 @@ const AccessRequestForm = ({ isOpen, onClose }) => {
               onFocus={() => handleFieldFocus('email')}
               required
               placeholder={t('yourEmailPlaceholder')}
+              className={validationErrors.email ? styles['input-error'] : ''}
             />
+            {validationErrors.email && (
+              <div className={styles['error-message']}>{validationErrors.email}</div>
+            )}
           </div>
 
           <div className={styles['form-group']}>
@@ -410,7 +464,11 @@ const AccessRequestForm = ({ isOpen, onClose }) => {
               rows="3"
               required
               placeholder={t('accessReasonPlaceholder')}
+              className={validationErrors.reason ? styles['input-error'] : ''}
             />
+            {validationErrors.reason && (
+              <div className={styles['error-message']}>{validationErrors.reason}</div>
+            )}
           </div>
 
           {/* Enhanced honeypot fields for spam protection */}

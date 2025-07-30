@@ -67,7 +67,14 @@ export const refreshAuthToken = async () => {
     });
 
     if (response.ok) {
-      return { success: true };
+      const result = await response.json();
+      
+      // Update session timestamp on successful refresh
+      if (typeof window !== 'undefined' && window.sessionStorage) {
+        sessionStorage.setItem('lucaverse_last_activity', Date.now().toString());
+      }
+      
+      return { success: true, data: result };
     }
 
     const error = await response.text();

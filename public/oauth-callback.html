@@ -41,35 +41,69 @@
     </div>
     
     <script>
-        // Extract tokens from URL parameters
+        // LUCI-HIGH-002: Enhanced OAuth callback with immediate URL cleaning
         const urlParams = new URLSearchParams(window.location.search);
         const token = urlParams.get('token');
         const sessionId = urlParams.get('session');
         const error = urlParams.get('error');
         
-        if (error) {
-            // Send error to parent window
-            if (window.opener) {
-                window.opener.postMessage({
-                    type: 'OAUTH_ERROR',
-                    error: error
-                }, window.location.origin);
-            }
-        } else if (token && sessionId) {
-            // Send successful authentication to parent window
-            if (window.opener) {
-                window.opener.postMessage({
-                    type: 'OAUTH_SUCCESS',
-                    token: token,
-                    sessionId: sessionId
-                }, window.location.origin);
-            }
+        // Clear URL immediately to prevent token leakage
+        if (window.history.replaceState) {
+            window.history.replaceState({}, document.title, window.location.pathname);
         }
         
-        // Close popup after a short delay
-        setTimeout(() => {
-            window.close();
-        }, 1000);
+        if (error) {
+            // Send error to parent window
+            if (window.opener && !window.opener.closed) {
+                try {
+                    window.opener.postMessage({
+                        type: 'OAUTH_ERROR',
+                        error: error
+                    }, window.location.origin);
+                } catch (e) {
+                    console.error('Failed to send error to parent window:', e);
+                }
+            }
+            // Fallback redirect on error
+            setTimeout(() => {
+                window.location.href = '/';
+            }, 2000);
+        } else if (token && sessionId) {
+            // Try postMessage first (more secure)
+            if (window.opener && !window.opener.closed) {
+                try {
+                    window.opener.postMessage({
+                        type: 'OAUTH_SUCCESS',
+                        token: token,
+                        sessionId: sessionId
+                    }, window.location.origin);
+                    
+                    // Close popup after successful message
+                    setTimeout(() => {
+                        window.close();
+                    }, 500);
+                } catch (e) {
+                    console.error('Failed to send tokens to parent window:', e);
+                    // Fallback to redirect method
+                    fallbackToRedirect(token, sessionId);
+                }
+            } else {
+                // No opener window, use redirect method
+                fallbackToRedirect(token, sessionId);
+            }
+        } else {
+            console.error('No valid tokens or error received');
+            // Redirect to home on invalid callback
+            setTimeout(() => {
+                window.location.href = '/';
+            }, 2000);
+        }
+        
+        function fallbackToRedirect(token, session) {
+            // Fallback: redirect to set-cookies endpoint
+            const redirectUrl = encodeURIComponent(window.location.origin);
+            window.location.href = `https://lucaverse-auth.lucianoaf8.workers.dev/auth/set-cookies?token=${encodeURIComponent(token)}&session=${encodeURIComponent(session)}&redirect=${redirectUrl}`;
+        }
     </script>
 </body>
 </html>

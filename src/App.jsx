@@ -10,6 +10,7 @@ import Contact from './components/Contact/Contact';
 import Footer from './components/Footer/Footer';
 import LucaverseLogin from './components/LucaverseLogin/LucaverseLogin';
 import Dashboard from './components/Dashboard/Dashboard';
+import SessionWarning from './components/SessionWarning/SessionWarning';
 
 function App() {
   const [currentView, setCurrentView] = useState('home');
@@ -70,6 +71,7 @@ function App() {
         </main>
         <Footer />
       </div>
+      <SessionWarning />
     </>
   );
 }
