@@ -1,6 +1,10 @@
 // src/components/AccessRequestForm/AccessRequestForm.js
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import { httpClient, handleApiResponse } from '../../utils/httpClient.js';
+import { logger } from '../../utils/logger.js';
+import { SpamProtection } from '../../utils/spamProtection.js';
+import { csrfProtection } from '../../utils/csrfProtection.js';
 import styles from './AccessRequestForm.module.css';
 
 // Custom Notification Component
@@ -53,6 +57,9 @@ const AccessRequestForm = ({ isOpen, onClose }) => {
   const [fieldFocusOrder, setFieldFocusOrder] = useState([]);
   const [fieldsModified, setFieldsModified] = useState([]);
   const [sessionStartTime] = useState(Date.now());
+  
+  // Enhanced spam protection
+  const [spamProtection] = useState(() => new SpamProtection(formStartTime));
 
   const showNotification = (type, message) => {
     setNotification({ show: true, type, message });
@@ -90,6 +97,15 @@ const AccessRequestForm = ({ isOpen, onClose }) => {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
+  // Cleanup spam protection on unmount
+  useEffect(() => {
+    return () => {
+      if (spamProtection) {
+        spamProtection.destroy();
+      }
+    };
+  }, [spamProtection]);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -111,14 +127,58 @@ const AccessRequestForm = ({ isOpen, onClose }) => {
     setLoading(true);
     showNotification('loading', t('submittingAccessRequest'));
 
-    const data = new FormData();
+    // Enhanced spam protection validation
+    const spamValidation = await spamProtection.validateSubmission(formData);
+    if (!spamValidation.passed) {
+      const errorMessage = spamProtection.getErrorMessage(spamValidation, t);
+      showNotification('error', errorMessage);
+      setLoading(false);
+      return;
+    }
+
+    // CSRF protection validation
+    try {
+      const csrfValidation = await csrfProtection.validate();
+      if (!csrfValidation.valid) {
+        const errorMessage = csrfProtection.getErrorMessage(csrfValidation, t);
+        showNotification('error', errorMessage);
+        setLoading(false);
+        return;
+      }
+    } catch (error) {
+      logger.error('CSRF validation failed:', error);
+      showNotification('error', 'Security validation failed. Please refresh the page and try again.');
+      setLoading(false);
+      return;
+    }
+
+    let data = new FormData();
     data.append('name', formData.name);
     data.append('email', formData.email);
     data.append('message', formData.reason); // Reason maps to "message" in Worker
     data.append('subject', 'Lucaverse Access Request'); // Add subject for better email formatting
     data.append('formType', 'access_request'); // Identify form type
     data.append('formTitle', 'Access Request from Lucaverse Portfolio'); // Add context
-    data.append('website', ''); // Honeypot field
+
+    // Add CSRF protection to form data
+    try {
+      data = await csrfProtection.protectFormData(data);
+    } catch (error) {
+      logger.error('Failed to add CSRF protection to form data:', error);
+      showNotification('error', 'Security protection failed. Please refresh the page and try again.');
+      setLoading(false);
+      return;
+    }
+    
+    // Add honeypot fields (they should all be empty for legitimate submissions)
+    SpamProtection.getHoneypotFields().forEach(field => {
+      data.append(field.name, '');
+    });
+    
+    // Add spam protection metadata
+    data.append('spamProtectionScore', spamValidation.checks?.behavior?.score || 0);
+    data.append('behaviorAnalysis', JSON.stringify(spamValidation.checks?.behavior || {}));
+    data.append('timingAnalysis', JSON.stringify(spamValidation.checks?.timing || {}));
     
     // Phase 1: Enhanced data collection
     try {
@@ -219,34 +279,49 @@ const AccessRequestForm = ({ isOpen, onClose }) => {
     }
 
     try {
-      const response = await fetch('https://summer-heart.lucianoaf8.workers.dev', {
-        method: 'POST',
-        body: data,
+      // Create CSRF-protected headers
+      const protectedHeaders = await csrfProtection.protectHeaders();
+      
+      // Use secure HTTP client with timeout, retry, and signing
+      const response = await httpClient.post('https://summer-heart.lucianoaf8.workers.dev', data, {
+        timeout: 15000, // 15 second timeout for form submissions
+        retries: 2, // Reduced retries for form submissions
+        enableSigning: true, // Enable request signing for authentication
+        headers: protectedHeaders, // Include CSRF protection headers
+        retryCondition: (error, response) => {
+          // Only retry on network errors or 5xx server errors
+          // Don't retry on 4xx client errors (bad request, validation, etc.)
+          if (error && error.code === 'TIMEOUT') return false; // Don't retry timeouts
+          return !response || (response.status >= 500 && response.status < 600);
+        }
       });
 
-      if (response.ok) {
-        let result;
-        try {
-          const text = await response.text();
-          result = JSON.parse(text);
-        } catch (parseError) {
-          result = { message: 'Your request was submitted successfully!' };
-        }
+      // Handle response with proper error checking
+      const result = await handleApiResponse(response);
+      
+      logger.info('Form submission successful:', {
+        formType: 'access_request',
+        responseStatus: response.status
+      });
 
-        showNotification('success', t('accessRequestSuccess'));
-        
-        // Reset form after successful submission
-        setTimeout(() => {
-          setFormData({ name: '', email: '', reason: '' });
-          onClose();
-          hideNotification();
-        }, 3000);
-        
-      } else {
-        showNotification('error', t('accessRequestError'));
-      }
+      showNotification('success', t('accessRequestSuccess'));
+      
+      // Reset form after successful submission
+      setTimeout(() => {
+        setFormData({ name: '', email: '', reason: '' });
+        onClose();
+        hideNotification();
+      }, 3000);
       
     } catch (error) {
+      // Enhanced error handling with specific error types
+      logger.error('Form submission failed:', {
+        formType: 'access_request',
+        error: error.message,
+        status: error.status,
+        code: error.code
+      });
+
       if (window.location.hostname === 'localhost') {
         showNotification('success', t('accessRequestLocalDev'));
         setTimeout(() => {
@@ -255,7 +330,20 @@ const AccessRequestForm = ({ isOpen, onClose }) => {
           hideNotification();
         }, 3000);
       } else {
-        showNotification('error', t('genericError'));
+        // Show specific error messages based on error type
+        let errorMessage = t('genericError');
+        
+        if (error.code === 'TIMEOUT') {
+          errorMessage = 'Request timeout. Please check your connection and try again.';
+        } else if (error.status === 429) {
+          errorMessage = 'Too many requests. Please wait a moment and try again.';
+        } else if (error.status >= 400 && error.status < 500) {
+          errorMessage = t('accessRequestError');
+        } else {
+          errorMessage = 'Service temporarily unavailable. Please try again later.';
+        }
+        
+        showNotification('error', errorMessage);
       }
     } finally {
       setLoading(false);
@@ -325,8 +413,20 @@ const AccessRequestForm = ({ isOpen, onClose }) => {
             />
           </div>
 
-          {/* Hidden honeypot */}
-          <input type="text" name="website" style={{ display: 'none' }} tabIndex="-1" autoComplete="off" />
+          {/* Enhanced honeypot fields for spam protection */}
+          {SpamProtection.getHoneypotFields().map((field, index) => (
+            <input
+              key={field.name}
+              type={field.type}
+              name={field.name}
+              style={field.style}
+              tabIndex={field.attributes.tabIndex}
+              autoComplete={field.attributes.autoComplete}
+              aria-hidden="true"
+              value=""
+              onChange={() => {}} // Prevent React warnings
+            />
+          ))}
 
           <button type="submit" className={styles['submit-button']} disabled={loading}>
             {loading ? t('submitting') : t('submitRequest')}

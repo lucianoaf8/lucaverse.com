@@ -6,7 +6,7 @@ i18n
   .use(LanguageDetector)
   .use(initReactI18next)
   .init({
-    debug: false,
+    debug: import.meta.env.DEV,
     fallbackLng: 'en',
     interpolation: {
       escapeValue: true, // Enable HTML escaping to prevent XSS attacks
