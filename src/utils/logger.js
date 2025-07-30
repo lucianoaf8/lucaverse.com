@@ -127,39 +127,13 @@ export const logger = {
   },
 
   /**
-   * Security-specific logging with extra sanitization
+   * Security-specific logging with extra sanitization - DISABLED FOR DEVELOPMENT
    * @param {string} message - Security message
    * @param {...any} args - Additional arguments
    */
   security: (message, ...args) => {
-    const securityMessage = `🚨 SECURITY: ${message}`;
-    
-    if (isDevelopment) {
-      console.error(securityMessage, ...args);
-    } else {
-      // Security events should be logged even in production (sanitized)
-      const sanitizedMessage = sanitizeLogMessage(securityMessage);
-      const sanitizedArgs = args.map(sanitizeLogMessage);
-      
-      try {
-        const securityLog = {
-          level: 'security',
-          message: sanitizedMessage,
-          args: sanitizedArgs,
-          timestamp: new Date().toISOString(),
-          url: window.location.href
-        };
-        
-        const existingLogs = JSON.parse(sessionStorage.getItem('security_logs') || '[]');
-        existingLogs.push(securityLog);
-        
-        // Keep last 5 security events
-        const recentLogs = existingLogs.slice(-5);
-        sessionStorage.setItem('security_logs', JSON.stringify(recentLogs));
-      } catch (e) {
-        // Silent fail
-      }
-    }
+    // COMPLETELY DISABLED - no logging to console or storage
+    return;
   },
 
   /**

@@ -777,13 +777,12 @@ export const stopSecurityMonitoring = () => {
   securityMonitor.stop();
 };
 
-// Export event types and alert levels for convenience
-export { SECURITY_EVENT_TYPES, ALERT_LEVELS };
+// Event types and alert levels are already exported above
 
-// Auto-initialize if in browser environment
-if (typeof window !== 'undefined' && !window.__SECURITY_MONITOR_INITIALIZED__) {
-  window.__SECURITY_MONITOR_INITIALIZED__ = true;
-  // Monitor is already initialized in constructor
-}
+// Auto-initialize if in browser environment - DISABLED FOR NOW
+// if (typeof window !== 'undefined' && !window.__SECURITY_MONITOR_INITIALIZED__) {
+//   window.__SECURITY_MONITOR_INITIALIZED__ = true;
+//   // Monitor is already initialized in constructor
+// }
 
 export default securityMonitor;

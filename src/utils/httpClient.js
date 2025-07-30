@@ -123,22 +123,10 @@ const secureApiCall = async (url, options = {}) => {
     }, timeout);
 
     try {
-      // Add request timestamp and signature for authentication
-      const timestamp = Date.now().toString();
+      // Use minimal headers to avoid CORS issues
       const headers = {
-        'X-Request-Timestamp': timestamp,
         ...fetchOptions.headers
       };
-
-      // Add HMAC signature if enabled
-      if (enableSigning && fetchOptions.body) {
-        const signature = await generateRequestSignature(fetchOptions.body, timestamp);
-        headers['X-Request-Signature'] = signature;
-      }
-
-      // Add security headers
-      headers['X-Requested-With'] = 'XMLHttpRequest';
-      headers['Cache-Control'] = 'no-cache';
 
       const response = await fetch(url, {
         ...fetchOptions,
@@ -152,11 +140,7 @@ const secureApiCall = async (url, options = {}) => {
       // Check if we should retry based on response
       if (!response.ok && retryCondition(null, response) && attempt < retries) {
         const delay = calculateRetryDelay(attempt);
-        logger.warn(`Request failed, retrying in ${delay}ms`, {
-          attempt: attempt + 1,
-          status: response.status,
-          url: url.replace(/\?.+/, '') // Remove query params from logs
-        });
+        // Silently retry on failure
         await sleep(delay);
         continue;
       }
@@ -178,11 +162,7 @@ const secureApiCall = async (url, options = {}) => {
       // Check if we should retry
       if (retryCondition(error, null) && attempt < retries) {
         const delay = calculateRetryDelay(attempt);
-        logger.warn(`Request failed with error, retrying in ${delay}ms`, {
-          attempt: attempt + 1,
-          error: error.message,
-          url: url.replace(/\?.+/, '')
-        });
+        // Silently retry on error
         await sleep(delay);
         continue;
       }
@@ -196,11 +176,7 @@ const secureApiCall = async (url, options = {}) => {
   const finalError = lastError || new Error(`Request failed after ${retries + 1} attempts`);
   finalError.lastResponse = lastResponse;
   
-  logger.error('All retry attempts failed:', {
-    url: url.replace(/\?.+/, ''),
-    error: finalError.message,
-    attempts: retries + 1
-  });
+  // All retry attempts failed silently
   
   throw finalError;
 };

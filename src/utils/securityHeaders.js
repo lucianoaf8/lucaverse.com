@@ -427,7 +427,6 @@ export {
   validateSecurityHeaders,
   validateRuntimeSecurity,
   generateCSPString,
-  validateCSPNonces,
   CSP_CONFIG,
   SECURITY_HEADERS
 };

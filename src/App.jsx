@@ -59,7 +59,7 @@ function App() {
   return (
     <>
       <Background />
-      <div style={{ position: 'relative', zIndex: 1 }}>
+      <div className="app-content">
         <Header />
         <main>
           <Hero />

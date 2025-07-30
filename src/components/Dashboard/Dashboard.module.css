@@ -1,9 +1,11 @@
 /* Dashboard Styles */
 .dashboard {
   min-height: 100vh;
-  background: var(--dark-bg, #040810);
+  background: linear-gradient(135deg, #040810 0%, #0A1020 50%, #040810 100%);
   color: rgba(255, 255, 255, 0.95);
   font-family: 'Outfit', sans-serif;
+  position: relative;
+  overflow: hidden;
 }
 
 /* Loading State */
@@ -77,6 +79,7 @@
   top: 0;
   z-index: 10;
   backdrop-filter: blur(10px);
+  box-shadow: 0 4px 20px rgba(0, 229, 255, 0.1);
 }
 
 .headerContent {
@@ -86,15 +89,21 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 20px;
 }
 
-.headerContent h1 {
+.headerTitle {
   font-family: 'Space Grotesk', sans-serif;
   font-size: clamp(1.5rem, 3vw, 2.5rem);
   font-weight: 700;
-  color: var(--primary-cyan, #00E5FF);
+  color: #00E5FF;
   text-shadow: 0 0 20px rgba(0, 229, 255, 0.4);
   margin: 0;
+  background: linear-gradient(90deg, #00FFCC 20%, #00E5FF 50%, #2AF598 80%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .userInfo {
@@ -107,8 +116,20 @@
   width: 50px;
   height: 50px;
   border-radius: 50%;
-  border: 2px solid var(--primary-cyan, #00E5FF);
+  border: 2px solid #00E5FF;
   box-shadow: 0 0 15px rgba(0, 229, 255, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(45deg, #00E5FF, #00FFCC);
+  position: relative;
+  overflow: hidden;
+}
+
+.avatarText {
+  color: #040810;
+  font-weight: bold;
+  font-size: 1.2rem;
 }
 
 .userDetails {
@@ -137,13 +158,34 @@
 
 .welcomeSection {
   text-align: center;
-  margin-bottom: 60px;
+  margin-bottom: 40px;
   padding: 40px;
   border: 1px solid rgba(0, 229, 255, 0.2);
   border-radius: 12px;
   background: rgba(0, 229, 255, 0.02);
   position: relative;
   overflow: hidden;
+}
+
+.welcomeTitle {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: clamp(1.8rem, 4vw, 3rem);
+  font-weight: 700;
+  color: #00FFCC;
+  margin-bottom: 16px;
+  text-shadow: 0 0 20px rgba(0, 255, 204, 0.4);
+}
+
+.welcomeText {
+  font-size: 1.25rem;
+  color: rgba(255, 255, 255, 0.8);
+  margin-bottom: 24px;
+}
+
+.timeDisplay {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.9rem;
+  font-family: 'Space Grotesk', sans-serif;
 }
 
 .welcomeSection::before {
@@ -304,6 +346,328 @@
   }
   
   .featuresGrid {
+    grid-template-columns: 1fr;
+  }
+  
+  .dashboardContent {
+    padding: 20px 16px;
+  }
+  
+  .welcomeSection {
+    padding: 30px 20px;
+  }
+}
+
+/* Logout Button */
+.logoutBtn {
+  padding: 8px 16px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.8);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-family: 'Space Grotesk', sans-serif;
+}
+
+.logoutBtn:hover {
+  border-color: rgba(255, 255, 255, 0.6);
+  color: rgba(255, 255, 255, 1);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+}
+
+/* Widgets Grid */
+.widgetsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: 24px;
+  margin-top: 40px;
+}
+
+.widget {
+  padding: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  position: relative;
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  overflow: hidden;
+  backdrop-filter: blur(10px);
+}
+
+.widget:hover {
+  border-color: rgba(0, 229, 255, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 229, 255, 0.1);
+}
+
+.widgetTitle {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #00E5FF;
+  margin: 0 0 16px 0;
+}
+
+/* Terminal Styles */
+.terminalWidget {
+  padding: 0;
+  background: rgba(0, 0, 0, 0.8);
+  border: 1px solid #00E5FF;
+}
+
+.terminalHeader {
+  background: rgba(0, 229, 255, 0.1);
+  padding: 12px 16px;
+  border-bottom: 1px solid #00E5FF;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.terminalTitle {
+  font-size: 0.8rem;
+  color: #00E5FF;
+  font-family: 'Monaco', 'Menlo', monospace;
+}
+
+.terminalControls {
+  display: flex;
+  gap: 8px;
+}
+
+.terminalButton {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #ff5f56;
+}
+
+.terminalButton:nth-child(2) {
+  background: #ffbd2e;
+}
+
+.terminalButton:nth-child(3) {
+  background: #27ca3f;
+}
+
+.terminalBody {
+  padding: 16px;
+  font-family: 'Monaco', 'Menlo', monospace;
+  font-size: 0.9rem;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.terminalLine {
+  color: #00E5FF;
+  margin-bottom: 4px;
+  white-space: pre-wrap;
+}
+
+.terminalInputLine {
+  display: flex;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.prompt {
+  color: #00FFCC;
+  margin-right: 8px;
+}
+
+.terminalInput {
+  background: transparent;
+  border: none;
+  color: #00E5FF;
+  outline: none;
+  font-family: inherit;
+  font-size: inherit;
+  flex: 1;
+}
+
+/* Activity Feed Styles */
+.activityFeed {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.activityItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(0, 229, 255, 0.1);
+  animation: slideInFromRight 0.3s ease;
+}
+
+.activityIcon {
+  font-size: 1.2rem;
+}
+
+.activityContent {
+  flex: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.activityMessage {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.9rem;
+}
+
+.activityTime {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.8rem;
+}
+
+/* Metrics Styles */
+.metricsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.metricItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.metricLabel {
+  width: 60px;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.metricBar {
+  flex: 1;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.metricFill {
+  height: 100%;
+  background: #00E5FF;
+  transition: width 0.3s ease;
+  border-radius: 4px;
+}
+
+.metricValue {
+  width: 40px;
+  text-align: right;
+  font-size: 0.8rem;
+  color: #00E5FF;
+}
+
+/* Holographic Styles */
+.holoContainer {
+  height: 200px;
+  position: relative;
+  background: radial-gradient(circle at center, rgba(0, 229, 255, 0.1) 0%, transparent 70%);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.holoGrid {
+  display: flex;
+  align-items: end;
+  gap: 4px;
+  height: 80%;
+}
+
+.holoBar {
+  width: 12px;
+  background: linear-gradient(to top, #00E5FF, #00FFCC);
+  border-radius: 2px;
+  animation: holoFloat 2s ease-in-out infinite alternate;
+  box-shadow: 0 0 10px rgba(0, 229, 255, 0.5);
+}
+
+.holoText {
+  position: absolute;
+  bottom: 10px;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+/* Quick Actions */
+.quickActions {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.actionButton {
+  padding: 16px;
+  background: rgba(0, 229, 255, 0.1);
+  border: 1px solid rgba(0, 229, 255, 0.3);
+  border-radius: 8px;
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Space Grotesk', sans-serif;
+}
+
+.actionButton:hover {
+  background: rgba(0, 229, 255, 0.2);
+  border-color: rgba(0, 229, 255, 0.5);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(0, 229, 255, 0.2);
+}
+
+.actionIcon {
+  font-size: 1.5rem;
+}
+
+/* Animations */
+@keyframes slideInFromRight {
+  from { 
+    transform: translateX(100%); 
+    opacity: 0; 
+  }
+  to { 
+    transform: translateX(0); 
+    opacity: 1; 
+  }
+}
+
+@keyframes holoFloat {
+  0% { 
+    transform: scaleY(1); 
+  }
+  100% { 
+    transform: scaleY(1.3); 
+  }
+}
+
+@media (max-width: 768px) {
+  .headerContent {
+    flex-direction: column;
+    gap: 20px;
+    text-align: center;
+  }
+  
+  .userInfo {
+    justify-content: center;
+  }
+  
+  .widgetsGrid {
+    grid-template-columns: 1fr;
+  }
+  
+  .quickActions {
     grid-template-columns: 1fr;
   }
   

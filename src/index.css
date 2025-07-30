@@ -35,6 +35,11 @@ html, body {
   z-index: 0;
 }
 
+.app-content {
+  position: relative;
+  z-index: 1;
+}
+
 /* Alternating section backgrounds */
 section {
   position: relative;
