@@ -17,7 +17,8 @@
     "audit:force": "npm audit fix --force",
     "security:check": "npm audit --audit-level moderate",
     "security:critical": "npm audit --audit-level high",
-    "precommit": "npm run security:check && npm run build"
+    "precommit": "npm run security:check && npm run build",
+    "deploy:monitor": "node scripts/deploy-workflow-mcp.js"
   },
   "dependencies": {
     "dompurify": "^3.2.6",
