@@ -89,46 +89,74 @@ const LucaverseLogin = () => {
           return;
         }
 
+        // Validate message timestamp (prevent replay attacks)
+        const messageAge = Date.now() - (event.data.timestamp || 0);
+        if (messageAge > 30000) { // 30 seconds max
+          logger.security('Message too old', { age: messageAge });
+          return;
+        }
+
         if (event.data.type === 'OAUTH_SUCCESS') {
-        // Authentication successful - tokens will be set as httpOnly cookies by the server
-        // No client-side token storage for security
-        
-        // Close the popup first
-        if (popup && !popup.closed) {
-          popup.close();
+          logger.debug('OAuth success message received');
+          
+          // Authentication successful - tokens will be set as httpOnly cookies by the server
+          // No client-side token storage for security
+          
+          // Close the popup first
+          if (popup && !popup.closed) {
+            popup.close();
+          }
+          
+          // Clean up
+          clearInterval(popupCheckInterval);
+          clearTimeout(timeoutId);
+          window.removeEventListener('message', messageHandler);
+          
+          // Clear OAuth storage
+          oauthStorage.clear();
+          
+          // Wait a moment for popup to fully close, then redirect
+          setTimeout(() => {
+            setIsLoading(false);
+            logger.debug('Redirecting to dashboard');
+            window.location.hash = 'dashboard';
+          }, 500);
+          
+        } else if (event.data.type === 'OAUTH_ERROR') {
+          // Handle authentication error
+          const errorMsg = event.data.error || 'Authentication failed';
+          logger.error('OAuth error:', errorMsg);
+          
+          // Close the popup first
+          if (popup && !popup.closed) {
+            popup.close();
+          }
+          
+          clearInterval(popupCheckInterval);
+          clearTimeout(timeoutId);
+          window.removeEventListener('message', messageHandler);
+          
+          // Clear OAuth storage
+          oauthStorage.clear();
+          
+          // Wait a moment for popup to fully close, then show error
+          setTimeout(() => {
+            setIsLoading(false);
+            
+            // Show user-friendly error message
+            const userError = errorMsg.includes('access_denied') 
+              ? 'Authentication was cancelled. Please try again.'
+              : errorMsg.includes('popup_blocked')
+              ? 'Popup was blocked. Please allow popups and try again.'
+              : 'Authentication failed. Please try again.';
+              
+            alert(userError);
+            logger.debug('OAuth error handled:', { error: errorMsg, userError });
+          }, 300);
+        } else {
+          logger.debug('Unknown message type received:', event.data.type);
         }
-        
-        // Clean up
-        clearInterval(popupCheckInterval);
-        clearTimeout(timeoutId);
-        window.removeEventListener('message', messageHandler);
-        
-        // Wait a moment for popup to fully close, then redirect
-        setTimeout(() => {
-          setIsLoading(false);
-          window.location.hash = 'dashboard';
-        }, 500);
-        
-      } else if (event.data.type === 'OAUTH_ERROR') {
-        // Handle authentication error
-        logger.error('OAuth error:', event.data.error);
-        
-        // Close the popup first
-        if (popup && !popup.closed) {
-          popup.close();
-        }
-        
-        clearInterval(popupCheckInterval);
-        clearTimeout(timeoutId);
-        window.removeEventListener('message', messageHandler);
-        
-        // Wait a moment for popup to fully close, then show error
-        setTimeout(() => {
-          setIsLoading(false);
-          alert('Authentication failed. Please try again.');
-        }, 300);
-      }
-    };
+      };
 
     // Add message listener
     window.addEventListener('message', messageHandler);

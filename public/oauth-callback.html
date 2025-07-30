@@ -41,69 +41,151 @@
     </div>
     
     <script>
-        // LUCI-HIGH-002: Enhanced OAuth callback with immediate URL cleaning
-        const urlParams = new URLSearchParams(window.location.search);
-        const token = urlParams.get('token');
-        const sessionId = urlParams.get('session');
-        const error = urlParams.get('error');
-        
-        // Clear URL immediately to prevent token leakage
-        if (window.history.replaceState) {
-            window.history.replaceState({}, document.title, window.location.pathname);
-        }
-        
-        if (error) {
-            // Send error to parent window
-            if (window.opener && !window.opener.closed) {
-                try {
-                    window.opener.postMessage({
-                        type: 'OAUTH_ERROR',
-                        error: error
-                    }, window.location.origin);
-                } catch (e) {
-                    console.error('Failed to send error to parent window:', e);
-                }
+        (function() {
+            'use strict';
+            
+            // Utility function to safely sanitize text
+            function sanitizeText(text) {
+                if (typeof text !== 'string') return '';
+                return text.replace(/[<>'"&]/g, function(char) {
+                    switch(char) {
+                        case '<': return '&lt;';
+                        case '>': return '&gt;';
+                        case '"': return '&quot;';
+                        case "'": return '&#x27;';
+                        case '&': return '&amp;';
+                        default: return char;
+                    }
+                });
             }
-            // Fallback redirect on error
-            setTimeout(() => {
-                window.location.href = '/';
-            }, 2000);
-        } else if (token && sessionId) {
-            // Try postMessage first (more secure)
-            if (window.opener && !window.opener.closed) {
+            
+            // Parse URL parameters from both query string and hash
+            function getURLParams() {
+                const params = new URLSearchParams(window.location.search);
+                const hashParams = new URLSearchParams(window.location.hash.substring(1));
+                
+                const result = {};
+                for (const [key, value] of params) {
+                    result[key] = value;
+                }
+                for (const [key, value] of hashParams) {
+                    result[key] = value;
+                }
+                return result;
+            }
+            
+            // Main OAuth callback handler
+            function handleOAuthCallback() {
                 try {
-                    window.opener.postMessage({
-                        type: 'OAUTH_SUCCESS',
-                        token: token,
-                        sessionId: sessionId
-                    }, window.location.origin);
+                    const params = getURLParams();
                     
-                    // Close popup after successful message
+                    // Clear URL immediately to prevent parameter leakage
+                    if (window.history.replaceState) {
+                        window.history.replaceState({}, document.title, window.location.pathname);
+                    }
+                    
+                    // Check for OAuth error
+                    if (params.error) {
+                        const errorMsg = sanitizeText(params.error_description || params.error);
+                        console.error('OAuth error:', errorMsg);
+                        
+                        // Send error message to parent window
+                        if (window.opener && !window.opener.closed) {
+                            window.opener.postMessage({
+                                type: 'OAUTH_ERROR',
+                                error: errorMsg,
+                                timestamp: Date.now()
+                            }, window.location.origin);
+                        }
+                        
+                        // Close popup after delay
+                        setTimeout(() => {
+                            window.close();
+                        }, 2000);
+                        return;
+                    }
+                    
+                    // Check for authorization code (OAuth 2.0 standard)
+                    if (params.code && params.state) {
+                        console.log('OAuth success - code received');
+                        
+                        // Send success message to parent window with OAuth parameters
+                        if (window.opener && !window.opener.closed) {
+                            window.opener.postMessage({
+                                type: 'OAUTH_SUCCESS',
+                                code: sanitizeText(params.code),
+                                state: sanitizeText(params.state),
+                                sessionId: sanitizeText(params.session_id || ''),
+                                timestamp: Date.now()
+                            }, window.location.origin);
+                        }
+                        
+                        // Close popup after short delay
+                        setTimeout(() => {
+                            window.close();
+                        }, 500);
+                        return;
+                    }
+                    
+                    // Legacy: Check for token-based response (older flow)
+                    if (params.token && params.session) {
+                        console.log('OAuth success - token received (legacy)');
+                        
+                        if (window.opener && !window.opener.closed) {
+                            window.opener.postMessage({
+                                type: 'OAUTH_SUCCESS',
+                                token: sanitizeText(params.token),
+                                sessionId: sanitizeText(params.session),
+                                timestamp: Date.now()
+                            }, window.location.origin);
+                        }
+                        
+                        setTimeout(() => {
+                            window.close();
+                        }, 500);
+                        return;
+                    }
+                    
+                    // No valid parameters - something went wrong
+                    throw new Error('No valid OAuth parameters received');
+                    
+                } catch (error) {
+                    console.error('OAuth callback error:', error);
+                    
+                    // Send error to parent
+                    if (window.opener && !window.opener.closed) {
+                        window.opener.postMessage({
+                            type: 'OAUTH_ERROR',
+                            error: 'Authentication failed: ' + error.message,
+                            timestamp: Date.now()
+                        }, window.location.origin);
+                    }
+                    
+                    // Close popup after delay
                     setTimeout(() => {
                         window.close();
-                    }, 500);
-                } catch (e) {
-                    console.error('Failed to send tokens to parent window:', e);
-                    // Fallback to redirect method
-                    fallbackToRedirect(token, sessionId);
+                    }, 2000);
                 }
-            } else {
-                // No opener window, use redirect method
-                fallbackToRedirect(token, sessionId);
             }
-        } else {
-            console.error('No valid tokens or error received');
-            // Redirect to home on invalid callback
-            setTimeout(() => {
-                window.location.href = '/';
-            }, 2000);
-        }
-        
-        function fallbackToRedirect(token, session) {
-            // Fallback: redirect to set-cookies endpoint
-            const redirectUrl = encodeURIComponent(window.location.origin);
-            window.location.href = `https://lucaverse-auth.lucianoaf8.workers.dev/auth/set-cookies?token=${encodeURIComponent(token)}&session=${encodeURIComponent(session)}&redirect=${redirectUrl}`;
-        }
+            
+            // Detect if this is a popup window
+            function isPopupWindow() {
+                return window.opener && window.opener !== window;
+            }
+            
+            // Main execution
+            if (isPopupWindow()) {
+                // This is a popup window, handle OAuth callback
+                handleOAuthCallback();
+            } else {
+                // Not a popup, redirect to main site
+                console.log('Not a popup window, redirecting to main site');
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 1000);
+            }
+            
+        })();
     </script>
 </body>
 </html>

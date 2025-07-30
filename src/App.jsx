@@ -16,9 +16,19 @@ function App() {
   const [currentView, setCurrentView] = useState('home');
 
   useEffect(() => {
-    // Check for OAuth callback parameters
+    // Check if this is a popup window for OAuth callback
+    const isPopupWindow = window.opener && window.opener !== window;
+    
+    if (isPopupWindow) {
+      // This is a popup window - handle OAuth callback
+      handlePopupOAuthCallback();
+      return; // Don't set up normal routing for popup windows
+    }
+
+    // Check for OAuth callback parameters (fallback)
     const urlParams = new URLSearchParams(window.location.search);
     const hasAuthTokens = urlParams.get('token') && urlParams.get('session');
+    const hasAuthCode = urlParams.get('code') && urlParams.get('state');
 
     // Simple hash-based routing with dashboard support
     const handleHashChange = () => {
@@ -26,7 +36,7 @@ function App() {
       const path = window.location.pathname;
       
       // Check for dashboard route or OAuth callback with tokens
-      if (path === '/dashboard' || hash === 'dashboard' || hasAuthTokens) {
+      if (path === '/dashboard' || hash === 'dashboard' || hasAuthTokens || hasAuthCode) {
         setCurrentView('dashboard');
       } else if (hash === 'login') {
         setCurrentView('login');
@@ -47,6 +57,92 @@ function App() {
       window.removeEventListener('popstate', handleHashChange);
     };
   }, []);
+
+  // Handle OAuth callback in popup window
+  const handlePopupOAuthCallback = () => {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      
+      // Combine params from query string and hash
+      const params = {};
+      for (const [key, value] of urlParams) params[key] = value;
+      for (const [key, value] of hashParams) params[key] = value;
+      
+      // Clear URL immediately for security
+      if (window.history.replaceState) {
+        window.history.replaceState({}, document.title, '/');
+      }
+      
+      // Check for OAuth error
+      if (params.error) {
+        console.error('OAuth error in popup:', params.error);
+        
+        if (window.opener && !window.opener.closed) {
+          window.opener.postMessage({
+            type: 'OAUTH_ERROR',
+            error: params.error_description || params.error,
+            timestamp: Date.now()
+          }, window.location.origin);
+        }
+        
+        setTimeout(() => window.close(), 1000);
+        return;
+      }
+      
+      // Check for authorization code (OAuth 2.0 standard)
+      if (params.code && params.state) {
+        console.log('OAuth success in popup - sending to parent');
+        
+        if (window.opener && !window.opener.closed) {
+          window.opener.postMessage({
+            type: 'OAUTH_SUCCESS',
+            code: params.code,
+            state: params.state,
+            sessionId: params.session_id || '',
+            timestamp: Date.now()
+          }, window.location.origin);
+        }
+        
+        setTimeout(() => window.close(), 500);
+        return;
+      }
+      
+      // Check for legacy token-based response
+      if (params.token && params.session) {
+        console.log('OAuth success in popup (legacy) - sending to parent');
+        
+        if (window.opener && !window.opener.closed) {
+          window.opener.postMessage({
+            type: 'OAUTH_SUCCESS',
+            token: params.token,
+            sessionId: params.session,
+            timestamp: Date.now()
+          }, window.location.origin);
+        }
+        
+        setTimeout(() => window.close(), 500);
+        return;
+      }
+      
+      // No valid OAuth parameters found
+      console.log('No OAuth parameters found in popup, closing');
+      setTimeout(() => window.close(), 1000);
+      
+    } catch (error) {
+      console.error('Error handling popup OAuth callback:', error);
+      
+      if (window.opener && !window.opener.closed) {
+        window.opener.postMessage({
+          type: 'OAUTH_ERROR',
+          error: 'Authentication failed: ' + error.message,
+          timestamp: Date.now()
+        }, window.location.origin);
+      }
+      
+      setTimeout(() => window.close(), 1000);
+    }
+  };
 
   if (currentView === 'login') {
     return <LucaverseLogin />;
