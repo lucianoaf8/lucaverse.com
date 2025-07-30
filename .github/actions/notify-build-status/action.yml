@@ -1,0 +1,19 @@
+name: 'Notify Build Status'
+description: 'Sends build status notifications and creates detailed job summaries'
+inputs:
+  build-status:
+    description: 'Build status (success/failure)'
+    required: true
+  commit-sha:
+    description: 'Commit SHA'
+    required: true
+  commit-message:
+    description: 'Commit message'
+    required: true
+  author:
+    description: 'Commit author'
+    required: true
+
+runs:
+  using: 'node20'
+  main: 'notify.js'
