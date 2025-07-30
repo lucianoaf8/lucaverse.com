@@ -299,15 +299,125 @@ async function handleGoogleCallback(request, env) {
 
     // Send success message to opener window with secure cookies
     const html = `
-      <html>
-        <body>
-          <script>
-            if (window.opener) {
-              window.opener.postMessage({ type: 'OAUTH_SUCCESS' }, '${env.FRONTEND_URL}');
-              window.close();
-            } else {
-              window.location.href = '${env.FRONTEND_URL}';
+      <!DOCTYPE html>
+      <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Authentication Complete</title>
+          <style>
+            body {
+              font-family: 'Space Grotesk', sans-serif;
+              background: #040810;
+              color: #00E5FF;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              height: 100vh;
+              margin: 0;
+              text-align: center;
             }
+            .message {
+              padding: 20px;
+              max-width: 400px;
+            }
+            .spinner {
+              width: 30px;
+              height: 30px;
+              border: 3px solid rgba(0, 229, 255, 0.3);
+              border-top: 3px solid #00E5FF;
+              border-radius: 50%;
+              animation: spin 1s linear infinite;
+              margin: 0 auto 20px;
+            }
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+            .success-message {
+              color: #00FFCC;
+              font-size: 16px;
+              margin-bottom: 10px;
+            }
+            .close-message {
+              color: rgba(255, 255, 255, 0.7);
+              font-size: 14px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="message">
+            <div class="spinner"></div>
+            <div class="success-message">Authentication successful!</div>
+            <div class="close-message">This window should close automatically...</div>
+          </div>
+          
+          <script>
+            (function() {
+              'use strict';
+              
+              console.log('OAuth success callback executing');
+              
+              // Function to attempt sending message and closing window
+              function attemptClose() {
+                try {
+                  // Always attempt to send the message, even if opener seems null
+                  if (window.opener) {
+                    console.log('Sending success message to opener');
+                    window.opener.postMessage({
+                      type: 'OAUTH_SUCCESS',
+                      timestamp: Date.now()
+                    }, '${env.FRONTEND_URL}');
+                  } else {
+                    console.log('No window.opener detected, but still attempting postMessage');
+                    // Sometimes window.opener is null but parent can still receive messages
+                    if (window.parent && window.parent !== window) {
+                      window.parent.postMessage({
+                        type: 'OAUTH_SUCCESS',
+                        timestamp: Date.now()
+                      }, '${env.FRONTEND_URL}');
+                    }
+                  }
+                  
+                  // Multiple attempts to close the window
+                  setTimeout(() => {
+                    console.log('Attempting to close window');
+                    window.close();
+                  }, 300);
+                  
+                  // Fallback close attempt
+                  setTimeout(() => {
+                    if (!window.closed) {
+                      console.log('Window still open, attempting force close');
+                      window.close();
+                    }
+                  }, 1000);
+                  
+                  // Final fallback - show user message
+                  setTimeout(() => {
+                    if (!window.closed) {
+                      console.log('Window could not be closed automatically');
+                      document.querySelector('.close-message').innerHTML = 
+                        'Please close this window manually to complete the authentication.';
+                    }
+                  }, 3000);
+                  
+                } catch (error) {
+                  console.error('Error in OAuth callback:', error);
+                  document.querySelector('.close-message').innerHTML = 
+                    'Please close this window manually to complete the authentication.';
+                }
+              }
+              
+              // Start the close attempt immediately
+              attemptClose();
+              
+              // Also try after DOM is fully loaded
+              if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', attemptClose);
+              }
+              
+            })();
           </script>
         </body>
       </html>

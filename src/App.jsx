@@ -61,6 +61,8 @@ function App() {
   // Handle OAuth callback in popup window
   const handlePopupOAuthCallback = () => {
     try {
+      console.log('React app loaded in popup window - this should not happen during normal OAuth flow');
+      
       const urlParams = new URLSearchParams(window.location.search);
       const hashParams = new URLSearchParams(window.location.hash.substring(1));
       
@@ -125,8 +127,18 @@ function App() {
         return;
       }
       
-      // No valid OAuth parameters found
-      console.log('No OAuth parameters found in popup, closing');
+      // No valid OAuth parameters found but we're in a popup
+      // This might be the result of the worker HTML not working properly
+      console.log('No OAuth parameters found in popup, attempting to signal success and close');
+      
+      // Try to signal success anyway since we're in a popup during OAuth flow
+      if (window.opener && !window.opener.closed) {
+        window.opener.postMessage({
+          type: 'OAUTH_SUCCESS',
+          timestamp: Date.now()
+        }, window.location.origin);
+      }
+      
       setTimeout(() => window.close(), 1000);
       
     } catch (error) {

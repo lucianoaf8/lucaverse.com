@@ -102,15 +102,19 @@ const LucaverseLogin = () => {
           // Authentication successful - tokens will be set as httpOnly cookies by the server
           // No client-side token storage for security
           
-          // Close the popup first
-          if (popup && !popup.closed) {
-            popup.close();
-          }
-          
-          // Clean up
+          // Clean up immediately
           clearInterval(popupCheckInterval);
           clearTimeout(timeoutId);
           window.removeEventListener('message', messageHandler);
+          
+          // Close the popup first
+          if (popup && !popup.closed) {
+            try {
+              popup.close();
+            } catch (error) {
+              logger.debug('Popup already closed or could not be closed');
+            }
+          }
           
           // Clear OAuth storage
           oauthStorage.clear();
@@ -120,7 +124,7 @@ const LucaverseLogin = () => {
             setIsLoading(false);
             logger.debug('Redirecting to dashboard');
             window.location.hash = 'dashboard';
-          }, 500);
+          }, 300);
           
         } else if (event.data.type === 'OAUTH_ERROR') {
           // Handle authentication error
