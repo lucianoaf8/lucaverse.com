@@ -6,38 +6,38 @@ export const useAuth = () => {
 
   useEffect(() => {
     const checkAuth = async () => {
+      // Check if there are tokens in URL params (legacy support - should be removed)
       const urlParams = new URLSearchParams(window.location.search);
       const token = urlParams.get('token');
       const sessionId = urlParams.get('session');
       
-      if (token) {
-        localStorage.setItem('auth_token', token);
-        localStorage.setItem('session_id', sessionId);
-        // Clean URL
-        window.history.replaceState({}, document.title, window.location.pathname);
+      if (token && sessionId) {
+        // If tokens are in URL, redirect to server endpoint to set secure cookies
+        window.location.href = `https://lucaverse-auth.lucianoaf8.workers.dev/auth/set-cookies?token=${encodeURIComponent(token)}&session=${encodeURIComponent(sessionId)}&redirect=${encodeURIComponent(window.location.origin + window.location.pathname)}`;
+        return;
       }
       
-      const storedToken = localStorage.getItem('auth_token');
-      const storedSessionId = localStorage.getItem('session_id');
-      
-      if (storedToken && storedSessionId) {
-        try {
-          const response = await fetch(
-            `https://lucaverse-auth.lucianoaf8.workers.dev/auth/verify?session=${storedSessionId}&token=${storedToken}`
-          );
-          const result = await response.json();
-          
-          if (result.valid) {
-            setUser(result.user);
-          } else {
-            localStorage.removeItem('auth_token');
-            localStorage.removeItem('session_id');
+      // Verify authentication status via API call (cookies will be sent automatically)
+      try {
+        const response = await fetch(
+          'https://lucaverse-auth.lucianoaf8.workers.dev/auth/verify',
+          {
+            method: 'GET',
+            credentials: 'include', // Important: this sends cookies with the request
+            headers: {
+              'Content-Type': 'application/json',
+            }
           }
-        } catch (error) {
-          console.error('Auth check failed:', error);
-          localStorage.removeItem('auth_token');
-          localStorage.removeItem('session_id');
+        );
+        
+        if (response.ok) {
+          const result = await response.json();
+          if (result.valid && result.user) {
+            setUser(result.user);
+          }
         }
+      } catch (error) {
+        console.error('Auth check failed:', error);
       }
       
       setLoading(false);
@@ -47,17 +47,18 @@ export const useAuth = () => {
   }, []);
 
   const logout = async () => {
-    const sessionId = localStorage.getItem('session_id');
-    if (sessionId) {
-      try {
-        await fetch(`https://lucaverse-auth.lucianoaf8.workers.dev/auth/logout?session=${sessionId}`);
-      } catch (error) {
-        console.error('Logout error:', error);
-      }
+    try {
+      await fetch('https://lucaverse-auth.lucianoaf8.workers.dev/auth/logout', {
+        method: 'POST',
+        credentials: 'include', // Important: this sends cookies with the request
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+    } catch (error) {
+      console.error('Logout error:', error);
     }
     
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('session_id');
     setUser(null);
     window.location.href = '/';
   };

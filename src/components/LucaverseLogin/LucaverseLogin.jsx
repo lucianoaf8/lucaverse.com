@@ -47,6 +47,21 @@ const LucaverseLogin = () => {
 
     // Timeout ID for cleanup
     let timeoutId;
+    let popupCheckInterval;
+
+    // Check if popup was closed manually (without authentication)
+    const checkPopupClosed = () => {
+      if (popup && popup.closed) {
+        console.log('🔒 Popup was closed manually');
+        clearInterval(popupCheckInterval);
+        clearTimeout(timeoutId);
+        window.removeEventListener('message', messageHandler);
+        setIsLoading(false);
+      }
+    };
+
+    // Start checking if popup is closed every 1 second
+    popupCheckInterval = setInterval(checkPopupClosed, 1000);
 
     // Listen for messages from the popup
     const messageHandler = (event) => {
@@ -56,9 +71,8 @@ const LucaverseLogin = () => {
       }
 
       if (event.data.type === 'OAUTH_SUCCESS') {
-        // Store authentication tokens
-        localStorage.setItem('auth_token', event.data.token);
-        localStorage.setItem('session_id', event.data.sessionId);
+        // Authentication successful - tokens will be set as httpOnly cookies by the server
+        // No client-side token storage for security
         
         // Close the popup first
         if (popup && !popup.closed) {
@@ -66,6 +80,7 @@ const LucaverseLogin = () => {
         }
         
         // Clean up
+        clearInterval(popupCheckInterval);
         clearTimeout(timeoutId);
         window.removeEventListener('message', messageHandler);
         
@@ -84,6 +99,7 @@ const LucaverseLogin = () => {
           popup.close();
         }
         
+        clearInterval(popupCheckInterval);
         clearTimeout(timeoutId);
         window.removeEventListener('message', messageHandler);
         
@@ -103,6 +119,7 @@ const LucaverseLogin = () => {
       if (popup && !popup.closed) {
         popup.close();
       }
+      clearInterval(popupCheckInterval);
       window.removeEventListener('message', messageHandler);
       setIsLoading(false);
       console.error('OAuth timeout');

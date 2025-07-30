@@ -9,7 +9,7 @@ i18n
     debug: false,
     fallbackLng: 'en',
     interpolation: {
-      escapeValue: false, 
+      escapeValue: true, // Enable HTML escaping to prevent XSS attacks
     },
     resources: {
       en: {

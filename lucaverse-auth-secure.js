@@ -1,91 +1,76 @@
-// Google OAuth Worker for Lucaverse Authentication
+// Secure Authentication Worker with httpOnly Cookies
+// This replaces localStorage with secure, httpOnly cookies
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     const { pathname } = url;
-
+    
     console.log('🌟 Worker request:', request.method, pathname);
-    console.log('🔧 Environment check:', {
-      hasGoogleClientId: !!env.GOOGLE_CLIENT_ID,
-      hasGoogleClientSecret: !!env.GOOGLE_CLIENT_SECRET,
-      workerUrl: env.WORKER_URL,
-      frontendUrl: env.FRONTEND_URL
-    });
-
-    // Handle CORS for frontend requests with credentials support
+    
+    // CORS headers with credentials support
     const corsHeaders = {
       'Access-Control-Allow-Origin': env.FRONTEND_URL || 'https://lucaverse.com',
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization',
       'Access-Control-Allow-Credentials': 'true', // Important for cookies
-      'Access-Control-Max-Age': '86400',
+      'Access-Control-Max-Age': '86400'
     };
-
+    
+    // Handle preflight
     if (request.method === 'OPTIONS') {
-      console.log('✅ Handling OPTIONS request');
-      return new Response(null, { 
+      return new Response(null, {
         status: 200,
-        headers: corsHeaders 
+        headers: corsHeaders
       });
     }
-
+    
     try {
       let response;
       
-      // Route handling
       switch (pathname) {
         case '/auth/google':
-          console.log('🔍 Handling Google auth request');
           response = await handleGoogleAuth(env);
           break;
-        
+          
         case '/auth/google/callback':
-          console.log('🔄 Handling Google callback');
           response = await handleGoogleCallback(request, env);
           break;
-        
+          
         case '/auth/verify':
-          console.log('✋ Handling session verification');
           response = await handleVerifySession(request, env);
           break;
-        
+          
         case '/auth/logout':
-          console.log('👋 Handling logout');
           response = await handleLogout(request, env);
           break;
-        
+          
         case '/auth/refresh':
-          console.log('🔄 Handling token refresh');
           response = await handleRefreshToken(request, env);
           break;
-        
+          
         case '/auth/set-cookies':
-          console.log('🍪 Handling set cookies');
           response = await handleSetCookies(request, env);
           break;
-        
+          
         default:
-          console.log('❓ Unknown route:', pathname);
           response = new Response('Not Found', { status: 404 });
           break;
       }
-
-      // Add CORS headers to non-redirect responses only
+      
+      // Add CORS headers to non-redirect responses
       if (response.status !== 302 && response.status !== 301) {
         Object.entries(corsHeaders).forEach(([key, value]) => {
           response.headers.set(key, value);
         });
       }
-
-      console.log('✅ Response ready:', response.status);
-      return response;
       
+      return response;
     } catch (error) {
       console.error('💥 Worker error:', error.message);
-      console.error('📚 Stack trace:', error.stack);
-      return new Response(`Internal Server Error: ${error.message}`, { 
-        status: 500, 
-        headers: corsHeaders 
+      return new Response(`Internal Server Error: ${error.message}`, {
+        status: 500,
+        headers: corsHeaders
       });
     }
   }
@@ -113,42 +98,27 @@ function createExpiredCookie(name) {
   return `${name}=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0`;
 }
 
-// Google OAuth redirect
+// Auth handlers
 async function handleGoogleAuth(env) {
   console.log('🎯 Starting Google OAuth process');
   
-  try {
-    const googleClientId = env.GOOGLE_CLIENT_ID;
-    console.log('🔑 Google Client ID check:', !!googleClientId);
-    
-    if (!googleClientId) {
-      throw new Error('GOOGLE_CLIENT_ID environment variable is missing');
-    }
-    
-    const redirectUri = `${env.WORKER_URL}/auth/google/callback`;
-    console.log('🔗 Redirect URI:', redirectUri);
-    
-    const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
-    authUrl.searchParams.set('client_id', googleClientId);
-    authUrl.searchParams.set('redirect_uri', redirectUri);
-    authUrl.searchParams.set('response_type', 'code');
-    authUrl.searchParams.set('scope', 'openid profile email');
-    authUrl.searchParams.set('access_type', 'offline');
-    
-    const finalUrl = authUrl.toString();
-    console.log('🚀 Final Google OAuth URL:', finalUrl);
-    
-    console.log('✅ Creating redirect response');
-    return Response.redirect(finalUrl, 302);
-    
-  } catch (error) {
-    console.error('💥 handleGoogleAuth error:', error.message);
-    console.error('📚 Stack trace:', error.stack);
-    throw error;
+  const googleClientId = env.GOOGLE_CLIENT_ID;
+  if (!googleClientId) {
+    throw new Error('GOOGLE_CLIENT_ID environment variable is missing');
   }
+  
+  const redirectUri = `${env.WORKER_URL}/auth/google/callback`;
+  const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+  
+  authUrl.searchParams.set('client_id', googleClientId);
+  authUrl.searchParams.set('redirect_uri', redirectUri);
+  authUrl.searchParams.set('response_type', 'code');
+  authUrl.searchParams.set('scope', 'openid profile email');
+  authUrl.searchParams.set('access_type', 'offline');
+  
+  return Response.redirect(authUrl.toString(), 302);
 }
 
-// Handle Google OAuth callback
 async function handleGoogleCallback(request, env) {
   const url = new URL(request.url);
   const code = url.searchParams.get('code');
@@ -157,55 +127,56 @@ async function handleGoogleCallback(request, env) {
   if (error || !code) {
     return Response.redirect(`${env.FRONTEND_URL}/oauth-callback.html?error=auth_failed`, 302);
   }
-
+  
   try {
     // Exchange code for tokens
     const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Type': 'application/x-www-form-urlencoded'
       },
       body: new URLSearchParams({
         client_id: env.GOOGLE_CLIENT_ID,
         client_secret: env.GOOGLE_CLIENT_SECRET,
-        code: code,
+        code,
         grant_type: 'authorization_code',
-        redirect_uri: `${env.WORKER_URL}/auth/google/callback`,
-      }),
+        redirect_uri: `${env.WORKER_URL}/auth/google/callback`
+      })
     });
-
+    
     const tokens = await tokenResponse.json();
     
     if (!tokens.access_token) {
       throw new Error('No access token received');
     }
-
-    // Get user info from Google
+    
+    // Get user info
     const userResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
       headers: {
-        'Authorization': `Bearer ${tokens.access_token}`,
-      },
+        'Authorization': `Bearer ${tokens.access_token}`
+      }
     });
-
+    
     const userInfo = await userResponse.json();
     
-    // Check if user is whitelisted
+    // Check whitelist
     const isWhitelisted = await checkWhitelist(userInfo.email, env);
     if (!isWhitelisted) {
       return Response.redirect(`${env.FRONTEND_URL}/oauth-callback.html?error=not_authorized`, 302);
     }
-
-    // Create session
+    
+    // Generate session
     const sessionId = generateSessionId();
     const sessionToken = generateSessionToken();
     
+    // Store session data
     const sessionData = {
       user: {
         id: userInfo.id,
         email: userInfo.email,
         name: userInfo.name,
         picture: userInfo.picture,
-        permissions: ['user'] // Add more permissions as needed
+        permissions: ['user']
       },
       token: sessionToken,
       refreshToken: tokens.refresh_token,
@@ -213,13 +184,21 @@ async function handleGoogleCallback(request, env) {
       expiresAt: Date.now() + (24 * 60 * 60 * 1000), // 24 hours
       refreshExpiresAt: Date.now() + (7 * 24 * 60 * 60 * 1000) // 7 days
     };
-
-    // Store session in KV
+    
     await env.OAUTH_SESSIONS.put(sessionId, JSON.stringify(sessionData), {
-      expirationTtl: 7 * 24 * 60 * 60, // 7 days in seconds
+      expirationTtl: 7 * 24 * 60 * 60 // 7 days
     });
-
-    // Send success message to opener window with secure cookies
+    
+    // Create secure cookies
+    const headers = new Headers({
+      'Location': `${env.FRONTEND_URL}/oauth-callback.html`,
+      'Set-Cookie': [
+        createSecureCookie('auth_token', sessionToken, 86400), // 24 hours
+        createSecureCookie('session_id', sessionId, 86400 * 7) // 7 days
+      ].join(', ')
+    });
+    
+    // Send success message to opener window
     const html = `
       <html>
         <body>
@@ -240,8 +219,8 @@ async function handleGoogleCallback(request, env) {
       headers: {
         'Content-Type': 'text/html',
         'Set-Cookie': [
-          createSecureCookie('auth_token', sessionToken, 86400), // 24 hours
-          createSecureCookie('session_id', sessionId, 86400 * 7) // 7 days
+          createSecureCookie('auth_token', sessionToken, 86400),
+          createSecureCookie('session_id', sessionId, 86400 * 7)
         ].join(', ')
       }
     });
@@ -252,7 +231,6 @@ async function handleGoogleCallback(request, env) {
   }
 }
 
-// Verify session token
 async function handleVerifySession(request, env) {
   // Read cookies from request
   const cookies = parseCookies(request.headers.get('Cookie') || '');
@@ -265,7 +243,7 @@ async function handleVerifySession(request, env) {
       headers: { 'Content-Type': 'application/json' }
     });
   }
-
+  
   try {
     const sessionData = await env.OAUTH_SESSIONS.get(sessionId);
     
@@ -275,7 +253,7 @@ async function handleVerifySession(request, env) {
         headers: { 'Content-Type': 'application/json' }
       });
     }
-
+    
     const session = JSON.parse(sessionData);
     
     // Check if session is expired
@@ -291,18 +269,18 @@ async function handleVerifySession(request, env) {
         headers: { 'Content-Type': 'application/json' }
       });
     }
-
-    // Check if token matches
+    
+    // Verify token matches
     if (session.token !== token) {
       return new Response(JSON.stringify({ valid: false, error: 'Invalid token' }), {
         status: 401,
         headers: { 'Content-Type': 'application/json' }
       });
     }
-
-    return new Response(JSON.stringify({ 
-      valid: true, 
-      user: session.user 
+    
+    return new Response(JSON.stringify({
+      valid: true,
+      user: session.user
     }), {
       headers: { 'Content-Type': 'application/json' }
     });
@@ -316,7 +294,6 @@ async function handleVerifySession(request, env) {
   }
 }
 
-// Handle logout
 async function handleLogout(request, env) {
   const cookies = parseCookies(request.headers.get('Cookie') || '');
   const sessionId = cookies.session_id;
@@ -328,7 +305,7 @@ async function handleLogout(request, env) {
       console.error('Logout error:', error);
     }
   }
-
+  
   // Clear cookies
   const headers = new Headers({
     'Content-Type': 'application/json',
@@ -337,41 +314,13 @@ async function handleLogout(request, env) {
       createExpiredCookie('session_id')
     ].join(', ')
   });
-
+  
   return new Response(JSON.stringify({ success: true }), {
     status: 200,
     headers
   });
 }
 
-// Check if user email is whitelisted
-async function checkWhitelist(email, env) {
-  try {
-    const whitelistData = await env.USER_WHITELIST.get('users');
-    if (!whitelistData) {
-      return false;
-    }
-    
-    const whitelist = JSON.parse(whitelistData);
-    return whitelist.emails && whitelist.emails.includes(email);
-  } catch (error) {
-    console.error('Whitelist check error:', error);
-    return false;
-  }
-}
-
-// Utility functions
-function generateSessionId() {
-  return crypto.randomUUID();
-}
-
-function generateSessionToken() {
-  const array = new Uint8Array(32);
-  crypto.getRandomValues(array);
-  return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
-}
-
-// Handle token refresh
 async function handleRefreshToken(request, env) {
   const cookies = parseCookies(request.headers.get('Cookie') || '');
   const oldToken = cookies.auth_token;
@@ -434,8 +383,8 @@ async function handleRefreshToken(request, env) {
   }
 }
 
-// Handle setting cookies (legacy URL token migration)
 async function handleSetCookies(request, env) {
+  // Legacy endpoint for URL token migration
   const url = new URL(request.url);
   const token = url.searchParams.get('token');
   const sessionId = url.searchParams.get('session');
@@ -477,9 +426,9 @@ async function handleSetCookies(request, env) {
   }
 }
 
-// Auto-refresh session
 async function refreshSession(sessionId, session, env) {
-  // Generate new token
+  // This would refresh with Google OAuth if needed
+  // For now, just extend the session
   const newToken = generateSessionToken();
   
   session.token = newToken;
@@ -502,4 +451,30 @@ async function refreshSession(sessionId, session, env) {
     status: 200,
     headers
   });
+}
+
+// Utility functions
+async function checkWhitelist(email, env) {
+  try {
+    const whitelistData = await env.USER_WHITELIST.get('users');
+    if (!whitelistData) {
+      return false;
+    }
+    
+    const whitelist = JSON.parse(whitelistData);
+    return whitelist.emails && whitelist.emails.includes(email);
+  } catch (error) {
+    console.error('Whitelist check error:', error);
+    return false;
+  }
+}
+
+function generateSessionId() {
+  return crypto.randomUUID();
+}
+
+function generateSessionToken() {
+  const array = new Uint8Array(32);
+  crypto.getRandomValues(array);
+  return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
 }

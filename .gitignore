@@ -36,3 +36,6 @@ docs/
 authorized-emails-management.md
 Session 1 - Critical XSS Fix.md
 security-audit-remediation-plan.json
+high-risk-issues.json
+xss-remediation-plan.json
+XSS-Protection-Guide.md
