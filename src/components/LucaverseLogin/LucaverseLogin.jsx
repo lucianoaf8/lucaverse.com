@@ -28,6 +28,7 @@ const LucaverseLogin = () => {
     try {
       // Generate secure OAuth parameters
       const securityParams = await createOAuthSecurityParams();
+      console.log('OAuth security params:', securityParams);
       
       // OAuth popup window specs
       const popupWidth = 500;
@@ -39,7 +40,7 @@ const LucaverseLogin = () => {
       const oauthUrl = new URL('https://lucaverse-auth.lucianoaf8.workers.dev/auth/google');
       oauthUrl.searchParams.set('state', securityParams.state);
       oauthUrl.searchParams.set('code_challenge', securityParams.codeChallenge);
-      oauthUrl.searchParams.set('code_challenge_method', securityParams.codeChallengeMethod);
+      oauthUrl.searchParams.set('code_challenge_method', securityParams.codeChallengeMethod || 'S256');
       oauthUrl.searchParams.set('session_id', securityParams.sessionId);
       
       const popup = window.open(
