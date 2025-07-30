@@ -64,7 +64,7 @@ const AccessRequestForm = ({ isOpen, onClose }) => {
   
   // LUCI-LOW-003: Input validation state
   const [validationErrors, setValidationErrors] = useState({});
-  const [isFormValid, setIsFormValid] = useState(false);
+  const [hasSubmitted, setHasSubmitted] = useState(false);
 
   const showNotification = (type, message) => {
     setNotification({ show: true, type, message });
@@ -97,7 +97,6 @@ const AccessRequestForm = ({ isOpen, onClose }) => {
     }
     
     setValidationErrors(errors);
-    setIsFormValid(formValid);
     
     return validationResult;
   };
@@ -111,6 +110,11 @@ const AccessRequestForm = ({ isOpen, onClose }) => {
 
     if (isOpen) {
       document.addEventListener('mousedown', handleClickOutside);
+    } else {
+      // Reset form state when closed
+      setFormData({ name: '', email: '', reason: '' });
+      setValidationErrors({});
+      setHasSubmitted(false);
     }
 
     return () => {
@@ -149,8 +153,14 @@ const AccessRequestForm = ({ isOpen, onClose }) => {
       setFieldsModified(prev => [...prev, name]);
     }
     
-    // LUCI-LOW-003: Validate form data on change
-    validateFormData(newFormData);
+    // Clear validation error for this field when user starts typing
+    if (validationErrors[name]) {
+      setValidationErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
+      });
+    }
   };
   
   const handleFieldFocus = (fieldName) => {
@@ -161,6 +171,7 @@ const AccessRequestForm = ({ isOpen, onClose }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setHasSubmitted(true);
     setLoading(true);
     showNotification('loading', t('submittingAccessRequest'));
 
@@ -428,9 +439,9 @@ const AccessRequestForm = ({ isOpen, onClose }) => {
               onFocus={() => handleFieldFocus('name')}
               required
               placeholder={t('enterYourName')}
-              className={validationErrors.name ? styles['input-error'] : ''}
+              className={hasSubmitted && validationErrors.name ? styles['input-error'] : ''}
             />
-            {validationErrors.name && (
+            {hasSubmitted && validationErrors.name && (
               <div className={styles['error-message']}>{validationErrors.name}</div>
             )}
           </div>
@@ -446,9 +457,9 @@ const AccessRequestForm = ({ isOpen, onClose }) => {
               onFocus={() => handleFieldFocus('email')}
               required
               placeholder={t('yourEmailPlaceholder')}
-              className={validationErrors.email ? styles['input-error'] : ''}
+              className={hasSubmitted && validationErrors.email ? styles['input-error'] : ''}
             />
-            {validationErrors.email && (
+            {hasSubmitted && validationErrors.email && (
               <div className={styles['error-message']}>{validationErrors.email}</div>
             )}
           </div>
@@ -464,9 +475,9 @@ const AccessRequestForm = ({ isOpen, onClose }) => {
               rows="3"
               required
               placeholder={t('accessReasonPlaceholder')}
-              className={validationErrors.reason ? styles['input-error'] : ''}
+              className={hasSubmitted && validationErrors.reason ? styles['input-error'] : ''}
             />
-            {validationErrors.reason && (
+            {hasSubmitted && validationErrors.reason && (
               <div className={styles['error-message']}>{validationErrors.reason}</div>
             )}
           </div>
