@@ -1,0 +1,151 @@
+# Security Audit Workflow
+# Runs npm audit on every push and pull request to detect vulnerabilities
+
+name: Security Audit
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'package*.json'
+      - 'lucaverse-auth/package*.json'
+      - 'summer-heart-worker/package*.json'
+      - '.github/workflows/security-audit.yml'
+  
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'package*.json'
+      - 'lucaverse-auth/package*.json' 
+      - 'summer-heart-worker/package*.json'
+      - '.github/workflows/security-audit.yml'
+  
+  # Run weekly security audits
+  schedule:
+    - cron: '0 10 * * 1' # Every Monday at 10:00 AM UTC
+
+  # Allow manual triggering
+  workflow_dispatch:
+
+jobs:
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        directory: ['.', 'lucaverse-auth', 'summer-heart-worker']
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: ${{ matrix.directory }}/package-lock.json
+      
+      - name: Install dependencies
+        working-directory: ${{ matrix.directory }}
+        run: npm ci
+      
+      - name: Run security audit
+        working-directory: ${{ matrix.directory }}
+        run: |
+          echo "🔍 Running security audit for ${{ matrix.directory }}..."
+          npm audit --audit-level moderate
+      
+      - name: Check for high/critical vulnerabilities
+        working-directory: ${{ matrix.directory }}
+        run: |
+          echo "🚨 Checking for high/critical vulnerabilities..."
+          npm audit --audit-level high --parseable | wc -l | xargs -I {} test {} -eq 0
+      
+      - name: Generate audit report
+        working-directory: ${{ matrix.directory }}
+        if: always()
+        run: |
+          echo "📊 Generating audit report..."
+          npm audit --json > audit-report-${{ matrix.directory }}.json 2>/dev/null || true
+          echo "Audit completed for ${{ matrix.directory }}"
+      
+      - name: Upload audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit-report-${{ matrix.directory }}
+          path: ${{ matrix.directory }}/audit-report-*.json
+          retention-days: 30
+
+  # Build test to ensure security fixes don't break functionality
+  build-test:
+    name: Build Test After Security Updates
+    runs-on: ubuntu-latest
+    needs: security-audit
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build application
+        run: |
+          echo "🏗️ Building application to verify security updates don't break functionality..."
+          npm run build
+      
+      - name: Verify build artifacts
+        run: |
+          echo "✅ Verifying build artifacts..."
+          test -f dist/index.html
+          test -d dist/assets
+          echo "Build verification completed successfully"
+
+  # Notify on security issues
+  notify-security-issues:
+    name: Notify Security Issues
+    runs-on: ubuntu-latest
+    needs: security-audit
+    if: failure()
+    
+    steps:
+      - name: Create security issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = `🚨 Security Vulnerabilities Detected - ${new Date().toISOString().split('T')[0]}`;
+            const body = `
+            ## Security Audit Failed
+            
+            The automated security audit has detected vulnerabilities in the project dependencies.
+            
+            ### Action Required
+            - Review the audit results in the workflow logs
+            - Update vulnerable dependencies using \`npm audit fix\`
+            - Test the application after updates
+            - Verify no functionality is broken
+            
+            ### Workflow Details
+            - **Run ID**: ${{ github.run_id }}
+            - **Commit**: ${{ github.sha }}
+            - **Branch**: ${{ github.ref_name }}
+            
+            This issue was automatically created by the security audit workflow.
+            `;
+            
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: title,
+              body: body,
+              labels: ['security', 'automated', 'high-priority']
+            });

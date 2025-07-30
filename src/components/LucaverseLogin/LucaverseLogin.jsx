@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import TronGrid from '../Background/TronGrid.tsx';
+import { createOAuthSecurityParams, validateMessageSource, oauthStorage } from '../../utils/oauth-security.js';
+import { logger } from '../../utils/logger.js';
 import styles from './LucaverseLogin.module.css';
 
 const LucaverseLogin = () => {
@@ -20,26 +22,35 @@ const LucaverseLogin = () => {
     }
   };
 
-  const handleGoogleLogin = () => {
+  const handleGoogleLogin = async () => {
     setIsLoading(true);
     
-    // OAuth popup window specs
-    const popupWidth = 500;
-    const popupHeight = 600;
-    const left = (window.screen.width / 2) - (popupWidth / 2);
-    const top = (window.screen.height / 2) - (popupHeight / 2);
-    
-    const oauthUrl = 'https://lucaverse-auth.lucianoaf8.workers.dev/auth/google';
-    
-    const popup = window.open(
-      oauthUrl,
-      'googleAuth',
-      `width=${popupWidth},height=${popupHeight},left=${left},top=${top},scrollbars=yes,resizable=yes`
-    );
+    try {
+      // Generate secure OAuth parameters
+      const securityParams = await createOAuthSecurityParams();
+      
+      // OAuth popup window specs
+      const popupWidth = 500;
+      const popupHeight = 600;
+      const left = (window.screen.width / 2) - (popupWidth / 2);
+      const top = (window.screen.height / 2) - (popupHeight / 2);
+      
+      // Build secure OAuth URL with state and PKCE parameters
+      const oauthUrl = new URL('https://lucaverse-auth.lucianoaf8.workers.dev/auth/google');
+      oauthUrl.searchParams.set('state', securityParams.state);
+      oauthUrl.searchParams.set('code_challenge', securityParams.codeChallenge);
+      oauthUrl.searchParams.set('code_challenge_method', securityParams.codeChallengeMethod);
+      oauthUrl.searchParams.set('session_id', securityParams.sessionId);
+      
+      const popup = window.open(
+        oauthUrl.toString(),
+        'googleAuth',
+        `width=${popupWidth},height=${popupHeight},left=${left},top=${top},scrollbars=yes,resizable=yes`
+      );
 
     
     if (!popup) {
-      console.error('❌ Popup was blocked!');
+      logger.error('Popup was blocked');
       setIsLoading(false);
       alert('Popup was blocked. Please allow popups for this site.');
       return;
@@ -52,7 +63,7 @@ const LucaverseLogin = () => {
     // Check if popup was closed manually (without authentication)
     const checkPopupClosed = () => {
       if (popup && popup.closed) {
-        console.log('🔒 Popup was closed manually');
+        logger.debug('Popup was closed manually');
         clearInterval(popupCheckInterval);
         clearTimeout(timeoutId);
         window.removeEventListener('message', messageHandler);
@@ -63,14 +74,21 @@ const LucaverseLogin = () => {
     // Start checking if popup is closed every 1 second
     popupCheckInterval = setInterval(checkPopupClosed, 1000);
 
-    // Listen for messages from the popup
-    const messageHandler = (event) => {
-      // Verify origin for security
-      if (event.origin !== window.location.origin) {
-        return;
-      }
+      // Listen for messages from the popup
+      const messageHandler = (event) => {
+        // Enhanced security validation
+        if (!validateMessageSource(event, popup, window.location.origin)) {
+          logger.security('Invalid message source', { origin: event.origin });
+          return;
+        }
 
-      if (event.data.type === 'OAUTH_SUCCESS') {
+        // Validate message structure
+        if (!event.data || typeof event.data !== 'object') {
+          logger.security('Invalid message data', { data: event.data });
+          return;
+        }
+
+        if (event.data.type === 'OAUTH_SUCCESS') {
         // Authentication successful - tokens will be set as httpOnly cookies by the server
         // No client-side token storage for security
         
@@ -92,7 +110,7 @@ const LucaverseLogin = () => {
         
       } else if (event.data.type === 'OAUTH_ERROR') {
         // Handle authentication error
-        console.error('OAuth error:', event.data.error);
+        logger.error('OAuth error:', event.data.error);
         
         // Close the popup first
         if (popup && !popup.closed) {
@@ -122,8 +140,17 @@ const LucaverseLogin = () => {
       clearInterval(popupCheckInterval);
       window.removeEventListener('message', messageHandler);
       setIsLoading(false);
-      console.error('OAuth timeout');
+      logger.error('OAuth timeout');
     }, 300000);
+    
+    } catch (error) {
+      logger.security('OAuth Security Error:', error);
+      setIsLoading(false);
+      alert(logger.getUserFriendlyError('authentication'));
+      
+      // Clean up any stored OAuth parameters
+      oauthStorage.clear();
+    }
   };
 
   return (

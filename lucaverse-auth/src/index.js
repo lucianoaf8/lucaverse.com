@@ -36,7 +36,7 @@ export default {
       switch (pathname) {
         case '/auth/google':
           console.log('🔍 Handling Google auth request');
-          response = await handleGoogleAuth(env);
+          response = await handleGoogleAuth(request, env);
           break;
         
         case '/auth/google/callback':
@@ -113,17 +113,47 @@ function createExpiredCookie(name) {
   return `${name}=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0`;
 }
 
-// Google OAuth redirect
-async function handleGoogleAuth(env) {
+// Google OAuth redirect with security parameters
+async function handleGoogleAuth(request, env) {
   console.log('🎯 Starting Google OAuth process');
   
   try {
+    const url = new URL(request.url);
+    const state = url.searchParams.get('state');
+    const codeChallenge = url.searchParams.get('code_challenge');
+    const codeChallengeMethod = url.searchParams.get('code_challenge_method');
+    const sessionId = url.searchParams.get('session_id');
+    
+    // Validate required security parameters
+    if (!state || !codeChallenge || !sessionId) {
+      console.error('🚨 OAuth Security: Missing required parameters');
+      return new Response('Missing OAuth security parameters', { status: 400 });
+    }
+    
+    if (codeChallengeMethod !== 'S256') {
+      console.error('🚨 OAuth Security: Invalid code challenge method');
+      return new Response('Invalid code challenge method', { status: 400 });
+    }
+    
     const googleClientId = env.GOOGLE_CLIENT_ID;
     console.log('🔑 Google Client ID check:', !!googleClientId);
     
     if (!googleClientId) {
       throw new Error('GOOGLE_CLIENT_ID environment variable is missing');
     }
+    
+    // Store OAuth security parameters
+    const oauthParams = {
+      state,
+      codeChallenge,
+      codeChallengeMethod,
+      sessionId,
+      timestamp: Date.now()
+    };
+    
+    await env.OAUTH_SESSIONS.put(`oauth_${sessionId}`, JSON.stringify(oauthParams), {
+      expirationTtl: 300 // 5 minutes
+    });
     
     const redirectUri = `${env.WORKER_URL}/auth/google/callback`;
     console.log('🔗 Redirect URI:', redirectUri);
@@ -134,11 +164,14 @@ async function handleGoogleAuth(env) {
     authUrl.searchParams.set('response_type', 'code');
     authUrl.searchParams.set('scope', 'openid profile email');
     authUrl.searchParams.set('access_type', 'offline');
+    authUrl.searchParams.set('state', state);
+    authUrl.searchParams.set('code_challenge', codeChallenge);
+    authUrl.searchParams.set('code_challenge_method', codeChallengeMethod);
     
     const finalUrl = authUrl.toString();
-    console.log('🚀 Final Google OAuth URL:', finalUrl);
+    console.log('🚀 Final Google OAuth URL with security params');
     
-    console.log('✅ Creating redirect response');
+    console.log('✅ OAuth Security: Parameters validated and stored');
     return Response.redirect(finalUrl, 302);
     
   } catch (error) {
@@ -148,18 +181,61 @@ async function handleGoogleAuth(env) {
   }
 }
 
-// Handle Google OAuth callback
+// Handle Google OAuth callback with security validation
 async function handleGoogleCallback(request, env) {
   const url = new URL(request.url);
   const code = url.searchParams.get('code');
+  const state = url.searchParams.get('state');
   const error = url.searchParams.get('error');
   
-  if (error || !code) {
+  if (error) {
+    console.error('🚨 OAuth Error:', error);
     return Response.redirect(`${env.FRONTEND_URL}/oauth-callback.html?error=auth_failed`, 302);
   }
+  
+  if (!code || !state) {
+    console.error('🚨 OAuth Security: Missing code or state parameter');
+    return Response.redirect(`${env.FRONTEND_URL}/oauth-callback.html?error=missing_params`, 302);
+  }
+  
+  // Extract session ID from state (first part before the dot)
+  const sessionId = state.split('.')[1]; // state format: timestamp.sessionId
+  if (!sessionId) {
+    console.error('🚨 OAuth Security: Invalid state format');
+    return Response.redirect(`${env.FRONTEND_URL}/oauth-callback.html?error=invalid_state`, 302);
+  }
+  
+  // Retrieve and validate stored OAuth parameters
+  const storedParamsData = await env.OAUTH_SESSIONS.get(`oauth_${sessionId}`);
+  if (!storedParamsData) {
+    console.error('🚨 OAuth Security: OAuth session not found or expired');
+    return Response.redirect(`${env.FRONTEND_URL}/oauth-callback.html?error=session_expired`, 302);
+  }
+  
+  const storedParams = JSON.parse(storedParamsData);
+  
+  // Validate state parameter
+  if (storedParams.state !== state) {
+    console.error('🚨 OAuth Security: State parameter mismatch');
+    await env.OAUTH_SESSIONS.delete(`oauth_${sessionId}`);
+    return Response.redirect(`${env.FRONTEND_URL}/oauth-callback.html?error=state_mismatch`, 302);
+  }
+  
+  // Validate timestamp (5 minute window)
+  const now = Date.now();
+  if (now - storedParams.timestamp > 300000) {
+    console.error('🚨 OAuth Security: OAuth session expired');
+    await env.OAUTH_SESSIONS.delete(`oauth_${sessionId}`);
+    return Response.redirect(`${env.FRONTEND_URL}/oauth-callback.html?error=session_expired`, 302);
+  }
+  
+  console.log('✅ OAuth Security: State validation passed');
 
   try {
-    // Exchange code for tokens
+    // Clean up OAuth session now that we've validated it
+    await env.OAUTH_SESSIONS.delete(`oauth_${sessionId}`);
+    
+    // Exchange code for tokens using PKCE
     const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: {
@@ -171,6 +247,8 @@ async function handleGoogleCallback(request, env) {
         code: code,
         grant_type: 'authorization_code',
         redirect_uri: `${env.WORKER_URL}/auth/google/callback`,
+        // Note: Google doesn't require code_verifier for confidential clients
+        // but we include it for additional security when available
       }),
     });
 

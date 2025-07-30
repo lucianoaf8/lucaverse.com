@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { logger } from '../utils/logger.js';
 
 export const useAuth = () => {
   const [user, setUser] = useState(null);
@@ -37,7 +38,7 @@ export const useAuth = () => {
           }
         }
       } catch (error) {
-        console.error('Auth check failed:', error);
+        logger.error('Auth check failed:', error);
       }
       
       setLoading(false);
@@ -56,7 +57,7 @@ export const useAuth = () => {
         }
       });
     } catch (error) {
-      console.error('Logout error:', error);
+      logger.error('Logout error:', error);
     }
     
     setUser(null);

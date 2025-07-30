@@ -39,3 +39,5 @@ security-audit-remediation-plan.json
 high-risk-issues.json
 xss-remediation-plan.json
 XSS-Protection-Guide.md
+LUCI-005-Sensitive-Data-Console-Resolved.md
+OAUTH-Security-Guide.md

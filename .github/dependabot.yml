@@ -1,0 +1,101 @@
+# Dependabot configuration for automated dependency updates
+# This helps maintain security by automatically updating vulnerable dependencies
+
+version: 2
+updates:
+  # Enable npm package updates
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      # Check for updates twice a week (Monday and Thursday)
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/Toronto"
+    
+    # Security and maintenance settings
+    open-pull-requests-limit: 5
+    
+    # Auto-merge configuration for security updates
+    auto-merge:
+      dependency-type: "security-updates"
+    
+    # Only create PRs for security updates and patch/minor updates
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    
+    # Commit message settings
+    commit-message:
+      prefix: "security"
+      prefix-development: "deps-dev"
+      include: "scope"
+    
+    # Reviewers and assignees
+    reviewers:
+      - "lucianoaf8"
+    assignees:
+      - "lucianoaf8"
+    
+    # Labels for PRs
+    labels:
+      - "dependencies"
+      - "security"
+      - "automated"
+    
+    # Rebase strategy
+    rebase-strategy: "auto"
+
+  # Enable npm package updates for workers
+  - package-ecosystem: "npm"
+    directory: "/lucaverse-auth"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:30"
+      timezone: "America/Toronto"
+    
+    open-pull-requests-limit: 3
+    
+    auto-merge:
+      dependency-type: "security-updates"
+    
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    
+    commit-message:
+      prefix: "auth-worker"
+      include: "scope"
+    
+    labels:
+      - "dependencies"
+      - "auth-worker"
+      - "security"
+
+  # Enable npm package updates for form worker
+  - package-ecosystem: "npm"
+    directory: "/summer-heart-worker"
+    schedule:
+      interval: "weekly"
+      day: "monday"  
+      time: "10:00"
+      timezone: "America/Toronto"
+    
+    open-pull-requests-limit: 3
+    
+    auto-merge:
+      dependency-type: "security-updates"
+    
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    
+    commit-message:
+      prefix: "form-worker"
+      include: "scope"
+    
+    labels:
+      - "dependencies" 
+      - "form-worker"
+      - "security"

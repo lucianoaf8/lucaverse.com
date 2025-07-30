@@ -1,6 +1,8 @@
 // Authentication utility functions
 // Uses httpOnly cookies for secure token storage
 
+import { logger } from './logger.js';
+
 const API_BASE_URL = 'https://lucaverse-auth.lucianoaf8.workers.dev';
 
 /**
@@ -27,7 +29,7 @@ export const checkAuthStatus = async () => {
 
     return { authenticated: false, user: null };
   } catch (error) {
-    console.error('Auth status check failed:', error);
+    logger.error('Auth status check failed:', error);
     return { authenticated: false, user: null };
   }
 };
@@ -71,7 +73,7 @@ export const refreshAuthToken = async () => {
     const error = await response.text();
     return { success: false, error };
   } catch (error) {
-    console.error('Token refresh failed:', error);
+    logger.error('Token refresh failed:', error);
     return { success: false, error: error.message };
   }
 };
@@ -90,7 +92,7 @@ export const logout = async () => {
       }
     });
   } catch (error) {
-    console.error('Logout error:', error);
+    logger.error('Logout error:', error);
   }
   
   // Redirect to home page
