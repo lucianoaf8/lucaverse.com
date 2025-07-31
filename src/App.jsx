@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+// Auto-monitoring test - configured 2025-07-31
 import Header from './components/Header/Header';
 import Background from './components/Background/Background.jsx';
 import Hero from './components/Hero/Hero';
