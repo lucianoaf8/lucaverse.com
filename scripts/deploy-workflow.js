@@ -10,8 +10,8 @@
  * 4. Handles errors and retries if needed
  */
 
-const { execSync, spawn } = require('child_process');
-const https = require('https');
+import { execSync, spawn } from 'child_process';
+import https from 'https';
 
 class DeploymentWorkflow {
   constructor() {
@@ -274,4 +274,4 @@ if (require.main === module) {
     });
 }
 
-module.exports = DeploymentWorkflow;
+export default DeploymentWorkflow;

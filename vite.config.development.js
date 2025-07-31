@@ -29,6 +29,7 @@ export default defineConfig({
         'http://localhost:5155',
         'https://summer-heart.lucianoaf8.workers.dev',
         'https://lucaverse-auth.lucianoaf8.workers.dev',
+        'https://lucaverse-auth-dev.lucianoaf8.workers.dev',
         'https://formerformfarmer.lucianoaf8.workers.dev'
       ],
       credentials: true

@@ -7,7 +7,7 @@
  * No API token required - uses authenticated MCP connections
  */
 
-const { execSync } = require('child_process');
+import { execSync } from 'child_process';
 
 class DeploymentWorkflowMCP {
   constructor() {
@@ -136,4 +136,4 @@ if (require.main === module) {
     });
 }
 
-module.exports = DeploymentWorkflowMCP;
+export default DeploymentWorkflowMCP;

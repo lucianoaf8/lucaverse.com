@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import TronGrid from '../Background/TronGrid.tsx';
 import { createOAuthSecurityParams, validateMessageSource, oauthStorage } from '../../utils/oauth-security.js';
 import { logger } from '../../utils/logger.js';
+import { ENV_CONFIG } from '../../config/environment.js';
 import styles from './LucaverseLogin.module.css';
 
 const LucaverseLogin = () => {
@@ -37,7 +38,8 @@ const LucaverseLogin = () => {
       const top = (window.screen.height / 2) - (popupHeight / 2);
       
       // Build secure OAuth URL with state and PKCE parameters
-      const oauthUrl = new URL('https://lucaverse-auth.lucianoaf8.workers.dev/auth/google');
+      // Use environment-specific worker URL
+      const oauthUrl = new URL(`${ENV_CONFIG.authWorkerUrl}/auth/google`);
       oauthUrl.searchParams.set('state', securityParams.state);
       oauthUrl.searchParams.set('code_challenge', securityParams.codeChallenge);
       oauthUrl.searchParams.set('code_challenge_method', securityParams.codeChallengeMethod || 'S256');

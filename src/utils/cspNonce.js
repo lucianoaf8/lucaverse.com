@@ -32,14 +32,14 @@ export const resetNonce = () => {
 };
 
 // Server-side nonce generation for build time
-export const generateBuildTimeNonce = () => {
+export const generateBuildTimeNonce = async () => {
   // Use Node.js crypto for server-side generation
-  if (typeof require !== 'undefined') {
+  if (typeof process !== 'undefined' && process.versions && process.versions.node) {
     try {
-      const crypto = require('crypto');
+      const crypto = await import('crypto');
       return crypto.randomBytes(16).toString('base64');
     } catch (e) {
-      // Fallback if require fails
+      // Fallback if import fails
     }
   }
   

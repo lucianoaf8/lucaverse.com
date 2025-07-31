@@ -2,8 +2,9 @@
 // Uses httpOnly cookies for secure token storage
 
 import { logger } from './logger.js';
+import { ENV_CONFIG } from '../config/environment.js';
 
-const API_BASE_URL = 'https://lucaverse-auth.lucianoaf8.workers.dev';
+const API_BASE_URL = ENV_CONFIG.authWorkerUrl;
 
 /**
  * Check if user is authenticated

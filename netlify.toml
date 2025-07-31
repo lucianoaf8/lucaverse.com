@@ -69,5 +69,4 @@
 
 # Security-focused build settings
 [build.environment]
-  NODE_ENV = "production"
   GENERATE_SOURCEMAP = "false"
