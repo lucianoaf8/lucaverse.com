@@ -12,16 +12,19 @@ export default {
       frontendUrl: env.FRONTEND_URL
     });
 
-    // Handle CORS for frontend requests with credentials support
+    // Handle CORS for frontend requests with enhanced popup support
     const corsHeaders = {
       'Access-Control-Allow-Origin': env.FRONTEND_URL || 'https://lucaverse.com',
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
       'Access-Control-Allow-Credentials': 'true', // Important for cookies
       'Access-Control-Max-Age': '86400',
-      // CRITICAL: Ensure popups can communicate back to parent window
+      // CRITICAL: Enhanced cross-origin communication for OAuth popup
       'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
-      'Cross-Origin-Embedder-Policy': 'unsafe-none'
+      'Cross-Origin-Embedder-Policy': 'unsafe-none',
+      'Referrer-Policy': 'strict-origin-when-cross-origin',
+      'X-Content-Type-Options': 'nosniff',
+      'X-Frame-Options': 'SAMEORIGIN'
     };
 
     if (request.method === 'OPTIONS') {
@@ -194,12 +197,12 @@ async function handleGoogleCallback(request, env) {
   
   if (error) {
     console.error('🚨 OAuth Error:', error);
-    return Response.redirect(`${env.FRONTEND_URL}/oauth-callback.html?error=auth_failed`, 302);
+    return createOAuthErrorResponse(error, 'OAuth provider error', env);
   }
   
   if (!code || !state) {
     console.error('🚨 OAuth Security: Missing code or state parameter');
-    return Response.redirect(`${env.FRONTEND_URL}/oauth-callback.html?error=missing_params`, 302);
+    return createOAuthErrorResponse('missing_params', 'Missing OAuth parameters', env);
   }
   
   console.log('🔍 OAuth callback received:', { 
@@ -212,7 +215,7 @@ async function handleGoogleCallback(request, env) {
   const storedParamsData = await env.OAUTH_SESSIONS.get(`oauth_state_${state}`);
   if (!storedParamsData) {
     console.error('🚨 OAuth Security: OAuth session not found or expired');
-    return Response.redirect(`${env.FRONTEND_URL}/oauth-callback.html?error=session_expired`, 302);
+    return createOAuthErrorResponse('session_expired', 'Session expired or not found', env);
   }
   
   const storedParams = JSON.parse(storedParamsData);
@@ -223,7 +226,7 @@ async function handleGoogleCallback(request, env) {
   if (storedParams.state !== state) {
     console.error('🚨 OAuth Security: State parameter mismatch');
     await env.OAUTH_SESSIONS.delete(`oauth_state_${state}`);
-    return Response.redirect(`${env.FRONTEND_URL}/oauth-callback.html?error=state_mismatch`, 302);
+    return createOAuthErrorResponse('state_mismatch', 'Invalid state parameter', env);
   }
   
   console.log('✅ State parameter validation passed');
@@ -233,7 +236,7 @@ async function handleGoogleCallback(request, env) {
   if (now - storedParams.timestamp > 300000) {
     console.error('🚨 OAuth Security: OAuth session expired');
     await env.OAUTH_SESSIONS.delete(`oauth_state_${state}`);
-    return Response.redirect(`${env.FRONTEND_URL}/oauth-callback.html?error=session_expired`, 302);
+    return createOAuthErrorResponse('session_expired', 'OAuth session expired', env);
   }
   
   console.log('✅ Timestamp validation passed');
@@ -280,7 +283,7 @@ async function handleGoogleCallback(request, env) {
     // Check if user is whitelisted
     const isWhitelisted = await checkWhitelist(userInfo.email, env);
     if (!isWhitelisted) {
-      return Response.redirect(`${env.FRONTEND_URL}/oauth-callback.html?error=not_authorized`, 302);
+      return createOAuthErrorResponse('not_authorized', `User ${userInfo.email} is not authorized`, env);
     }
 
     // Create session
@@ -462,6 +465,25 @@ async function handleGoogleCallback(request, env) {
                     }
                   }
                   
+                  // Additional attempt: Try top window
+                  if (!messageSent && window.top && window.top !== window) {
+                    addDebugLog('📨 Attempting to send message to top window');
+                    try {
+                      window.top.postMessage(message, '${env.FRONTEND_URL}');
+                      addDebugLog('✅ Message sent to top window');
+                      messageSent = true;
+                    } catch (e) {
+                      addDebugLog('❌ Failed to send to top: ' + e.message);
+                      try {
+                        window.top.postMessage(message, '*');
+                        addDebugLog('✅ Message sent to top with wildcard');
+                        messageSent = true;
+                      } catch (e2) {
+                        addDebugLog('❌ Failed top wildcard: ' + e2.message);
+                      }
+                    }
+                  }
+                  
                   if (!messageSent) {
                     addDebugLog('🚨 No message could be sent!');
                   }
@@ -557,18 +579,20 @@ async function handleGoogleCallback(request, env) {
           createSecureCookie('auth_token', sessionToken, 86400), // 24 hours
           createSecureCookie('session_id', sessionId, 86400 * 7) // 7 days
         ].join(', '),
-        // CRITICAL: Allow cross-origin communication for OAuth popup
+        // CRITICAL: Enhanced cross-origin communication for OAuth popup
         'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
         'Cross-Origin-Embedder-Policy': 'unsafe-none',
-        // Additional headers to ensure popup can communicate back
+        'Referrer-Policy': 'strict-origin-when-cross-origin',
         'X-Frame-Options': 'SAMEORIGIN',
-        'Cache-Control': 'no-cache, no-store, must-revalidate'
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
       }
     });
     
   } catch (error) {
     console.error('OAuth callback error:', error);
-    return Response.redirect(`${env.FRONTEND_URL}/oauth-callback.html?error=auth_failed`, 302);
+    return createOAuthErrorResponse('auth_failed', `Authentication failed: ${error.message}`, env);
   }
 }
 
@@ -661,6 +685,188 @@ async function handleLogout(request, env) {
   return new Response(JSON.stringify({ success: true }), {
     status: 200,
     headers
+  });
+}
+
+// Create OAuth error response with popup that sends error to parent
+function createOAuthErrorResponse(errorCode, errorMessage, env) {
+  console.log('🚨 Creating OAuth error response:', { errorCode, errorMessage });
+  
+  const html = `
+    <!DOCTYPE html>
+    <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Authentication Error</title>
+        <style>
+          body {
+            font-family: 'Space Grotesk', sans-serif;
+            background: #040810;
+            color: #FF6B6B;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            text-align: center;
+          }
+          .message {
+            padding: 20px;
+            max-width: 400px;
+          }
+          .error-icon {
+            font-size: 48px;
+            margin-bottom: 20px;
+          }
+          .error-message {
+            color: #FF6B6B;
+            font-size: 16px;
+            margin-bottom: 10px;
+          }
+          .close-message {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 14px;
+          }
+          .debug-info {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 12px;
+            margin-top: 20px;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 5px;
+            font-family: monospace;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="message">
+          <div class="error-icon">⚠️</div>
+          <div class="error-message">Authentication failed</div>
+          <div class="close-message">This window will close automatically...</div>
+          <div class="debug-info" id="debug-info">
+            Error: ${errorCode}
+          </div>
+        </div>
+        
+        <script>
+          (function() {
+            'use strict';
+            
+            const debugInfo = document.getElementById('debug-info');
+            
+            function addDebugLog(message) {
+              console.log(message);
+              debugInfo.innerHTML += '<br>' + new Date().toISOString().slice(11, 23) + ' - ' + message;
+              debugInfo.scrollTop = debugInfo.scrollHeight;
+            }
+            
+            addDebugLog('🚨 OAuth error callback started');
+            addDebugLog('❌ Error: ${errorCode}');
+            addDebugLog('📝 Message: ${errorMessage}');
+            addDebugLog('🔗 Window opener exists: ' + !!window.opener);
+            
+            function attemptErrorClose() {
+              try {
+                addDebugLog('📤 Sending error message to parent');
+                
+                const message = {
+                  type: 'OAUTH_ERROR',
+                  error: '${errorMessage}',
+                  errorCode: '${errorCode}',
+                  timestamp: Date.now(),
+                  debug: {
+                    workerOrigin: window.location.origin,
+                    frontendUrl: '${env.FRONTEND_URL}'
+                  }
+                };
+                
+                let messageSent = false;
+                
+                if (window.opener && !window.opener.closed) {
+                  addDebugLog('📨 Attempting to send error to opener');
+                  
+                  try {
+                    window.opener.postMessage(message, '${env.FRONTEND_URL}');
+                    addDebugLog('✅ Error message sent to ${env.FRONTEND_URL}');
+                    messageSent = true;
+                  } catch (e) {
+                    addDebugLog('❌ Failed to send to ${env.FRONTEND_URL}: ' + e.message);
+                    
+                    try {
+                      window.opener.postMessage(message, '*');
+                      addDebugLog('✅ Error message sent with wildcard origin');
+                      messageSent = true;
+                    } catch (e2) {
+                      addDebugLog('❌ Failed wildcard send: ' + e2.message);
+                    }
+                  }
+                } else {
+                  addDebugLog('⚠️ No window.opener or opener is closed');
+                }
+                
+                if (!messageSent) {
+                  addDebugLog('🚨 No error message could be sent!');
+                }
+                
+                // Close window attempts
+                addDebugLog('🚪 Starting window close attempts');
+                
+                setTimeout(() => {
+                  addDebugLog('🚪 Attempt 1: Immediate close');
+                  try {
+                    window.close();
+                  } catch (e) {
+                    addDebugLog('❌ Window close failed: ' + e.message);
+                  }
+                }, 100);
+                
+                setTimeout(() => {
+                  if (!window.closed) {
+                    addDebugLog('🚪 Attempt 2: Force close after delay');
+                    try {
+                      window.close();
+                    } catch (e) {
+                      addDebugLog('❌ Force close failed: ' + e.message);
+                    }
+                  }
+                }, 1000);
+                
+                setTimeout(() => {
+                  if (!window.closed) {
+                    addDebugLog('🚪 Attempt 3: Navigation to about:blank');
+                    try {
+                      window.location.href = 'about:blank';
+                    } catch (e) {
+                      addDebugLog('❌ Navigation failed: ' + e.message);
+                    }
+                  }
+                }, 2000);
+                
+              } catch (error) {
+                addDebugLog('💥 Critical error in attemptErrorClose: ' + error.message);
+                console.error('OAuth error callback error:', error);
+              }
+            }
+            
+            addDebugLog('⏰ Starting OAuth error callback in 100ms');
+            setTimeout(attemptErrorClose, 100);
+            
+          })();
+        </script>
+      </body>
+    </html>
+  `;
+  
+  return new Response(html, {
+    status: 200,
+    headers: {
+      'Content-Type': 'text/html',
+      'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
+      'Cross-Origin-Embedder-Policy': 'unsafe-none',
+      'X-Frame-Options': 'SAMEORIGIN',
+      'Cache-Control': 'no-cache, no-store, must-revalidate'
+    }
   });
 }
 

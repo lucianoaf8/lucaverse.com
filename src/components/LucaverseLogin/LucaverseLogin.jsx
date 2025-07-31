@@ -84,19 +84,30 @@ const LucaverseLogin = () => {
           timestamp: new Date().toISOString()
         });
 
-        // Enhanced security validation - check against worker origin instead of current origin
+        // Enhanced security validation - check against worker origin  
         const expectedWorkerOrigin = 'https://lucaverse-auth.lucianoaf8.workers.dev';
         
         console.log('🔍 Frontend: Validating message source', {
           receivedOrigin: event.origin,
           expectedOrigin: expectedWorkerOrigin,
           sourceMatches: event.source === popup,
-          popupClosed: popup?.closed
+          popupClosed: popup?.closed,
+          eventType: event.data?.type
         });
 
-        if (!validateMessageSource(event, popup, expectedWorkerOrigin)) {
-          logger.security('Invalid message source', { origin: event.origin, expected: expectedWorkerOrigin });
-          console.log('❌ Frontend: Message source validation failed');
+        // Allow messages from worker origin or parent origin for flexibility
+        const validOrigins = [expectedWorkerOrigin, window.location.origin];
+        if (!validOrigins.includes(event.origin)) {
+          logger.security('Invalid message origin', { origin: event.origin, expected: validOrigins });
+          console.log('❌ Frontend: Message origin validation failed');
+          return;
+        }
+
+        // Validate source (popup or parent windows)
+        const validSources = [popup, window.parent, window.top].filter(Boolean);
+        if (!validSources.includes(event.source)) {
+          logger.security('Invalid message source window');
+          console.log('❌ Frontend: Message source window validation failed');
           return;
         }
 
@@ -170,8 +181,11 @@ const LucaverseLogin = () => {
           
         } else if (event.data.type === 'OAUTH_ERROR') {
           const errorMsg = event.data.error || 'Authentication failed';
+          const errorCode = event.data.errorCode || 'unknown';
+          
           console.log('❌ Frontend: OAuth error received', {
             error: errorMsg,
+            errorCode: errorCode,
             messageData: event.data,
             popupClosed: popup?.closed
           });
@@ -197,16 +211,38 @@ const LucaverseLogin = () => {
           setTimeout(() => {
             setIsLoading(false);
             
-            // Show user-friendly error message
-            const userError = errorMsg.includes('access_denied') 
-              ? 'Authentication was cancelled. Please try again.'
-              : errorMsg.includes('popup_blocked')
-              ? 'Popup was blocked. Please allow popups and try again.'
-              : 'Authentication failed. Please try again.';
+            // Show user-friendly error message based on error code
+            let userError;
+            switch (errorCode) {
+              case 'access_denied':
+                userError = 'Authentication was cancelled. Please try again.';
+                break;
+              case 'popup_blocked':
+                userError = 'Popup was blocked. Please allow popups and try again.';
+                break;
+              case 'session_expired':
+                userError = 'Session expired. Please try authentication again.';
+                break;
+              case 'not_authorized':
+                userError = 'You are not authorized to access this application.';
+                break;
+              case 'state_mismatch':
+                userError = 'Security validation failed. Please try again.';
+                break;
+              case 'missing_params':
+                userError = 'Authentication parameters missing. Please try again.';
+                break;
+              default:
+                userError = errorMsg.includes('access_denied') 
+                  ? 'Authentication was cancelled. Please try again.'
+                  : errorMsg.includes('popup_blocked')
+                  ? 'Popup was blocked. Please allow popups and try again.'
+                  : 'Authentication failed. Please try again.';
+            }
               
             console.log('🚨 Frontend: Showing error to user:', userError);
             alert(userError);
-            logger.debug('OAuth error handled:', { error: errorMsg, userError });
+            logger.debug('OAuth error handled:', { error: errorMsg, errorCode, userError });
           }, 300);
         } else {
           console.log('❓ Frontend: Unknown message type received', {
