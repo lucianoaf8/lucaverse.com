@@ -1,0 +1,16 @@
+{
+  "hooks": [
+    {
+      "event": "PostToolUse",
+      "matcher": "Bash.*git push.*origin main",
+      "command": "powershell.exe -Command \"Write-Host '🔄 DEPLOYMENT TRIGGERED - ACTIVATING MONITORING MODE' -ForegroundColor Red -BackgroundColor Yellow\"",
+      "run_in_background": false
+    },
+    {
+      "event": "PostToolUse",
+      "matcher": "Bash.*powershell.exe.*git push origin main",
+      "command": "powershell.exe -Command \"Write-Host '🚨 CLAUDE CODE MUST NOW START AUTOMATIC DEPLOYMENT MONITORING' -ForegroundColor White -BackgroundColor Red\"",
+      "run_in_background": false
+    }
+  ]
+}

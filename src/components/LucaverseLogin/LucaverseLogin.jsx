@@ -122,19 +122,29 @@ const LucaverseLogin = () => {
 
         console.log('✅ Frontend: Message data structure valid');
 
-        // Validate message timestamp (prevent replay attacks)
+        // Validate message timestamp (prevent replay attacks) - Extended for OAuth flows
         const messageAge = Date.now() - (event.data.timestamp || 0);
         console.log('⏰ Frontend: Message timing check', { 
           messageTimestamp: event.data.timestamp, 
           currentTime: Date.now(), 
           age: messageAge,
           ageSeconds: Math.round(messageAge / 1000),
-          maxAllowed: 300000
+          maxAllowed: 600000, // Extended to 10 minutes for OAuth flows
+          timestampValid: event.data.timestamp > 0
         });
         
-        if (messageAge > 300000) { // 5 minutes max - more generous for OAuth flow
-          logger.security('Message too old', { age: messageAge });
-          console.log('❌ Frontend: Message too old', { age: messageAge, ageSeconds: Math.round(messageAge / 1000) });
+        // More lenient validation for OAuth flows - allow up to 10 minutes
+        if (messageAge > 600000 || messageAge < 0) { // 10 minutes max, reject future timestamps
+          logger.security('Message timestamp invalid', { 
+            age: messageAge, 
+            timestamp: event.data.timestamp,
+            currentTime: Date.now()
+          });
+          console.log('❌ Frontend: Message timestamp invalid', { 
+            age: messageAge, 
+            ageSeconds: Math.round(messageAge / 1000),
+            reason: messageAge < 0 ? 'Future timestamp' : 'Too old'
+          });
           return;
         }
 

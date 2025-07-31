@@ -87,6 +87,46 @@ export default {
           });
           break;
         
+        case '/debug':
+          console.log('🔍 Debug info request');
+          try {
+            // Test KV access
+            const testWhitelist = await env.USER_WHITELIST.get('users');
+            
+            response = new Response(JSON.stringify({
+              status: 'debug',
+              timestamp: Date.now(),
+              environment: {
+                hasGoogleClientId: !!env.GOOGLE_CLIENT_ID,
+                hasGoogleClientSecret: !!env.GOOGLE_CLIENT_SECRET,
+                googleClientIdPrefix: env.GOOGLE_CLIENT_ID ? env.GOOGLE_CLIENT_ID.substring(0, 10) + '...' : 'missing',
+                workerUrl: env.WORKER_URL,
+                frontendUrl: env.FRONTEND_URL
+              },
+              kvStore: {
+                whitelistExists: !!testWhitelist,
+                whitelistData: testWhitelist ? JSON.parse(testWhitelist) : null
+              },
+              oauth: {
+                redirectUri: `${env.WORKER_URL}/auth/google/callback`,
+                expectedOrigins: [env.FRONTEND_URL]
+              }
+            }, null, 2), {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' }
+            });
+          } catch (error) {
+            response = new Response(JSON.stringify({
+              status: 'debug_error',
+              error: error.message,
+              timestamp: Date.now()
+            }), {
+              status: 500,
+              headers: { 'Content-Type': 'application/json' }
+            });
+          }
+          break;
+        
         default:
           console.log('❓ Unknown route:', pathname);
           response = new Response('Not Found', { status: 404 });
@@ -282,11 +322,43 @@ async function handleGoogleCallback(request, env) {
     });
 
     console.log('📤 Token exchange response status:', tokenResponse.status);
+    console.log('📤 Token exchange response headers:', Object.fromEntries(tokenResponse.headers));
+    
     const tokens = await tokenResponse.json();
+    console.log('📤 Token exchange response body:', {
+      hasAccessToken: !!tokens.access_token,
+      hasRefreshToken: !!tokens.refresh_token,
+      error: tokens.error,
+      errorDescription: tokens.error_description,
+      expiresIn: tokens.expires_in,
+      tokenType: tokens.token_type
+    });
     
     if (!tokens.access_token) {
       console.error('❌ No access token received from Google:', tokens);
-      throw new Error('No access token received from Google');
+      
+      // Enhanced error handling based on Google's error response
+      let errorMessage = 'No access token received from Google';
+      if (tokens.error) {
+        switch (tokens.error) {
+          case 'invalid_grant':
+            errorMessage = 'Authorization code expired or invalid. Please try again.';
+            break;
+          case 'invalid_client':
+            errorMessage = 'OAuth client configuration error. Please contact support.';
+            break;
+          case 'invalid_request':
+            errorMessage = 'Invalid OAuth request parameters. Please try again.';
+            break;
+          case 'unsupported_grant_type':
+            errorMessage = 'OAuth grant type not supported. Please contact support.';
+            break;
+          default:
+            errorMessage = `OAuth error: ${tokens.error} - ${tokens.error_description || 'Unknown error'}`;
+        }
+      }
+      
+      throw new Error(errorMessage);
     }
 
     console.log('✅ Access token received from Google');
@@ -527,23 +599,26 @@ function createOAuthSuccessHTML(env, userInfo, sessionId, sessionToken) {
           }
         }
         
-        // Authentication data
-        const authData = {
-          type: 'OAUTH_SUCCESS',
-          timestamp: Date.now(),
-          user: {
-            email: '${userInfo.email}',
-            name: '${userInfo.name || ''}',
-            id: '${userInfo.id || ''}'
-          },
-          sessionId: '${sessionId}',
-          debug: {
-            workerOrigin: CONFIG.workerOrigin,
-            frontendUrl: CONFIG.frontendUrl,
-            userAgent: navigator.userAgent,
-            timestamp: new Date().toISOString()
-          }
-        };
+        // Authentication data factory - generates timestamp when called
+        function createAuthData() {
+          return {
+            type: 'OAUTH_SUCCESS',
+            timestamp: Date.now(), // ✅ Dynamic timestamp when message is sent
+            user: {
+              email: '${userInfo.email}',
+              name: '${userInfo.name || ''}',
+              id: '${userInfo.id || ''}'
+            },
+            sessionId: '${sessionId}',
+            debug: {
+              workerOrigin: CONFIG.workerOrigin,
+              frontendUrl: CONFIG.frontendUrl,
+              userAgent: navigator.userAgent,
+              timestamp: new Date().toISOString(),
+              messageGeneratedAt: Date.now()
+            }
+          };
+        }
         
         addDebugLog('OAuth callback initialized', 'success');
         addDebugLog(\`Frontend URL: \${CONFIG.frontendUrl}\`);
@@ -630,8 +705,10 @@ function createOAuthSuccessHTML(env, userInfo, sessionId, sessionToken) {
             
             for (const origin of target.origins) {
               try {
+                const messageData = createAuthData(); // ✅ Generate fresh timestamp
                 addDebugLog(\`Sending to \${target.name} with origin: \${origin}\`);
-                target.window.postMessage(authData, origin);
+                addDebugLog(\`Message timestamp: \${messageData.timestamp} (\${new Date(messageData.timestamp).toISOString()})\`);
+                target.window.postMessage(messageData, origin);
                 success = true;
                 addDebugLog(\`✅ Message sent to \${target.name} (\${origin})\`, 'success');
                 break;
