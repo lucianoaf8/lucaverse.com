@@ -1,10 +1,10 @@
-// Google OAuth Worker for Lucaverse Authentication
+// Google OAuth Worker for Lucaverse Authentication - Enhanced Version
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     const { pathname } = url;
 
-    console.log('🌟 Worker request:', request.method, pathname);
+    console.log('🌟 Worker request:', request.method, pathname, url.toString());
     console.log('🔧 Environment check:', {
       hasGoogleClientId: !!env.GOOGLE_CLIENT_ID,
       hasGoogleClientSecret: !!env.GOOGLE_CLIENT_SECRET,
@@ -68,6 +68,23 @@ export default {
         case '/auth/set-cookies':
           console.log('🍪 Handling set cookies');
           response = await handleSetCookies(request, env);
+          break;
+        
+        case '/health':
+          console.log('💚 Health check');
+          response = new Response(JSON.stringify({
+            status: 'healthy',
+            timestamp: Date.now(),
+            environment: {
+              hasGoogleClientId: !!env.GOOGLE_CLIENT_ID,
+              hasGoogleClientSecret: !!env.GOOGLE_CLIENT_SECRET,
+              workerUrl: env.WORKER_URL,
+              frontendUrl: env.FRONTEND_URL
+            }
+          }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+          });
           break;
         
         default:
@@ -188,15 +205,23 @@ async function handleGoogleAuth(request, env) {
   }
 }
 
-// Handle Google OAuth callback with security validation
+// Handle Google OAuth callback with security validation - ENHANCED VERSION
 async function handleGoogleCallback(request, env) {
   const url = new URL(request.url);
   const code = url.searchParams.get('code');
   const state = url.searchParams.get('state');
   const error = url.searchParams.get('error');
   
+  console.log('🔥 ENHANCED CALLBACK: Starting Google OAuth callback processing');
+  console.log('🔍 Callback parameters:', { 
+    code: code ? 'present' : 'missing',
+    state: state ? state.substring(0, 10) + '...' : 'missing',
+    error: error || 'none',
+    fullUrl: url.toString()
+  });
+  
   if (error) {
-    console.error('🚨 OAuth Error:', error);
+    console.error('🚨 OAuth Error received from Google:', error);
     return createOAuthErrorResponse(error, 'OAuth provider error', env);
   }
   
@@ -204,11 +229,6 @@ async function handleGoogleCallback(request, env) {
     console.error('🚨 OAuth Security: Missing code or state parameter');
     return createOAuthErrorResponse('missing_params', 'Missing OAuth parameters', env);
   }
-  
-  console.log('🔍 OAuth callback received:', { 
-    code: code ? 'present' : 'missing',
-    state: state ? state.substring(0, 10) + '...' : 'missing'
-  });
   
   // Retrieve stored OAuth parameters using STATE as key
   console.log('🔎 Looking up OAuth session with state key...');
@@ -219,7 +239,6 @@ async function handleGoogleCallback(request, env) {
   }
   
   const storedParams = JSON.parse(storedParamsData);
-  
   console.log('✅ OAuth session found and loaded');
 
   // Validate state parameter
@@ -240,14 +259,13 @@ async function handleGoogleCallback(request, env) {
   }
   
   console.log('✅ Timestamp validation passed');
-  
-  console.log('✅ OAuth Security: State validation passed');
 
   try {
     // Clean up OAuth session now that we've validated it
     console.log('🧹 Cleaning up OAuth session after validation');
     await env.OAUTH_SESSIONS.delete(`oauth_state_${state}`);
     
+    console.log('🔄 Exchanging authorization code for tokens...');
     // Exchange code for tokens using PKCE
     const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
@@ -260,17 +278,20 @@ async function handleGoogleCallback(request, env) {
         code: code,
         grant_type: 'authorization_code',
         redirect_uri: `${env.WORKER_URL}/auth/google/callback`,
-        // Note: Google doesn't require code_verifier for confidential clients
-        // but we include it for additional security when available
       }),
     });
 
+    console.log('📤 Token exchange response status:', tokenResponse.status);
     const tokens = await tokenResponse.json();
     
     if (!tokens.access_token) {
-      throw new Error('No access token received');
+      console.error('❌ No access token received from Google:', tokens);
+      throw new Error('No access token received from Google');
     }
 
+    console.log('✅ Access token received from Google');
+
+    console.log('👤 Fetching user information from Google...');
     // Get user info from Google
     const userResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
       headers: {
@@ -279,12 +300,23 @@ async function handleGoogleCallback(request, env) {
     });
 
     const userInfo = await userResponse.json();
+    console.log('👤 User info received:', { 
+      email: userInfo.email, 
+      name: userInfo.name,
+      id: userInfo.id ? 'present' : 'missing'
+    });
     
+    console.log('🔍 Checking user whitelist...');
     // Check if user is whitelisted
     const isWhitelisted = await checkWhitelist(userInfo.email, env);
+    console.log('🔍 Whitelist check result:', isWhitelisted ? 'APPROVED' : 'DENIED');
+    
     if (!isWhitelisted) {
+      console.error('🚫 User not whitelisted:', userInfo.email);
       return createOAuthErrorResponse('not_authorized', `User ${userInfo.email} is not authorized`, env);
     }
+
+    console.log('✅ User is whitelisted, creating session...');
 
     // Create session
     const sessionId = generateSessionId();
@@ -305,6 +337,7 @@ async function handleGoogleCallback(request, env) {
       refreshExpiresAt: Date.now() + (7 * 24 * 60 * 60 * 1000) // 7 days
     };
 
+    console.log('💾 Storing session in KV store...');
     // Store session in KV
     await env.OAUTH_SESSIONS.put(sessionId, JSON.stringify(sessionData), {
       expirationTtl: 7 * 24 * 60 * 60, // 7 days in seconds
@@ -317,282 +350,635 @@ async function handleGoogleCallback(request, env) {
       frontendUrl: env.FRONTEND_URL
     });
 
-    // Send success message to opener window with secure cookies
-    const html = `
-      <!DOCTYPE html>
-      <html lang="en">
-        <head>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Authentication Complete</title>
-          <style>
-            body {
-              font-family: 'Space Grotesk', sans-serif;
-              background: #040810;
-              color: #00E5FF;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              height: 100vh;
-              margin: 0;
-              text-align: center;
-            }
-            .message {
-              padding: 20px;
-              max-width: 400px;
-            }
-            .spinner {
-              width: 30px;
-              height: 30px;
-              border: 3px solid rgba(0, 229, 255, 0.3);
-              border-top: 3px solid #00E5FF;
-              border-radius: 50%;
-              animation: spin 1s linear infinite;
-              margin: 0 auto 20px;
-            }
-            @keyframes spin {
-              0% { transform: rotate(0deg); }
-              100% { transform: rotate(360deg); }
-            }
-            .success-message {
-              color: #00FFCC;
-              font-size: 16px;
-              margin-bottom: 10px;
-            }
-            .close-message {
-              color: rgba(255, 255, 255, 0.7);
-              font-size: 14px;
-            }
-            .debug-info {
-              color: rgba(255, 255, 255, 0.5);
-              font-size: 12px;
-              margin-top: 20px;
-              padding: 10px;
-              background: rgba(0, 0, 0, 0.3);
-              border-radius: 5px;
-              font-family: monospace;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="message">
-            <div class="spinner"></div>
-            <div class="success-message">Authentication successful!</div>
-            <div class="close-message">This window should close automatically...</div>
-            <div class="debug-info" id="debug-info">
-              Initializing OAuth callback...
-            </div>
-          </div>
-          
-          <script>
-            (function() {
-              'use strict';
-              
-              const debugInfo = document.getElementById('debug-info');
-              
-              function addDebugLog(message) {
-                console.log(message);
-                debugInfo.innerHTML += '<br>' + new Date().toISOString().slice(11, 23) + ' - ' + message;
-                debugInfo.scrollTop = debugInfo.scrollHeight;
-              }
-              
-              addDebugLog('🚀 OAuth callback script started');
-              addDebugLog('🌐 Current URL: ' + window.location.href);
-              addDebugLog('🔗 Window opener exists: ' + !!window.opener);
-              addDebugLog('🔗 Window parent exists: ' + !!window.parent);
-              addDebugLog('🎯 Frontend URL: ${env.FRONTEND_URL}');
-              addDebugLog('🏠 Current origin: ' + window.location.origin);
-              
-              // Function to attempt sending message and closing window
-              function attemptClose() {
-                try {
-                  addDebugLog('📤 Preparing to send success message');
-                  
-                  const message = {
-                    type: 'OAUTH_SUCCESS',
-                    timestamp: Date.now(),
-                    debug: {
-                      workerOrigin: window.location.origin,
-                      frontendUrl: '${env.FRONTEND_URL}',
-                      timestamp: new Date().toISOString()
-                    }
-                  };
-                  
-                  addDebugLog('📦 Message payload: ' + JSON.stringify(message, null, 2));
-                  
-                  let messageSent = false;
-                  
-                  if (window.opener && !window.opener.closed) {
-                    addDebugLog('📨 Attempting to send message to opener');
-                    
-                    // First try: Send to specific frontend URL
-                    try {
-                      window.opener.postMessage(message, '${env.FRONTEND_URL}');
-                      addDebugLog('✅ Message sent to ${env.FRONTEND_URL}');
-                      messageSent = true;
-                    } catch (e) {
-                      addDebugLog('❌ Failed to send to ${env.FRONTEND_URL}: ' + e.message);
-                      
-                      // Second try: wildcard origin
-                      try {
-                        window.opener.postMessage(message, '*');
-                        addDebugLog('✅ Message sent with wildcard origin');
-                        messageSent = true;
-                      } catch (e2) {
-                        addDebugLog('❌ Failed wildcard send: ' + e2.message);
-                      }
-                    }
-                  } else {
-                    addDebugLog('⚠️ No window.opener or opener is closed');
-                    
-                    // Try parent window as fallback
-                    if (window.parent && window.parent !== window) {
-                      addDebugLog('📨 Attempting to send message to parent');
-                      try {
-                        window.parent.postMessage(message, '${env.FRONTEND_URL}');
-                        addDebugLog('✅ Message sent to parent');
-                        messageSent = true;
-                      } catch (e) {
-                        addDebugLog('❌ Failed to send to parent: ' + e.message);
-                        try {
-                          window.parent.postMessage(message, '*');
-                          addDebugLog('✅ Message sent to parent with wildcard');
-                          messageSent = true;
-                        } catch (e2) {
-                          addDebugLog('❌ Failed parent wildcard: ' + e2.message);
-                        }
-                      }
-                    }
-                  }
-                  
-                  // Additional attempt: Try top window
-                  if (!messageSent && window.top && window.top !== window) {
-                    addDebugLog('📨 Attempting to send message to top window');
-                    try {
-                      window.top.postMessage(message, '${env.FRONTEND_URL}');
-                      addDebugLog('✅ Message sent to top window');
-                      messageSent = true;
-                    } catch (e) {
-                      addDebugLog('❌ Failed to send to top: ' + e.message);
-                      try {
-                        window.top.postMessage(message, '*');
-                        addDebugLog('✅ Message sent to top with wildcard');
-                        messageSent = true;
-                      } catch (e2) {
-                        addDebugLog('❌ Failed top wildcard: ' + e2.message);
-                      }
-                    }
-                  }
-                  
-                  if (!messageSent) {
-                    addDebugLog('🚨 No message could be sent!');
-                  }
-                  
-                  // Close window attempts
-                  addDebugLog('🚪 Starting window close attempts');
-                  
-                  // Immediate close attempt
-                  setTimeout(() => {
-                    addDebugLog('🚪 Attempt 1: Immediate close');
-                    try {
-                      window.close();
-                      if (window.closed) {
-                        addDebugLog('✅ Window closed successfully');
-                      } else {
-                        addDebugLog('⚠️ Window.close() called but window still open');
-                      }
-                    } catch (e) {
-                      addDebugLog('❌ Window close failed: ' + e.message);
-                    }
-                  }, 100);
-                  
-                  // Second attempt after 500ms
-                  setTimeout(() => {
-                    if (!window.closed) {
-                      addDebugLog('🚪 Attempt 2: Force close after delay');
-                      try {
-                        window.close();
-                      } catch (e) {
-                        addDebugLog('❌ Force close failed: ' + e.message);
-                      }
-                    }
-                  }, 500);
-                  
-                  // Third attempt - navigation
-                  setTimeout(() => {
-                    if (!window.closed) {
-                      addDebugLog('🚪 Attempt 3: Navigation to about:blank');
-                      try {
-                        window.location.href = 'about:blank';
-                      } catch (e) {
-                        addDebugLog('❌ Navigation failed: ' + e.message);
-                      }
-                    }
-                  }, 1500);
-                  
-                  // Final fallback - show manual close message
-                  setTimeout(() => {
-                    if (!window.closed) {
-                      addDebugLog('🚨 All close attempts failed - showing manual close message');
-                      document.querySelector('.close-message').innerHTML = 
-                        'Please close this window manually to complete authentication.';
-                    }
-                  }, 3000);
-                  
-                } catch (error) {
-                  addDebugLog('💥 Critical error in attemptClose: ' + error.message);
-                  console.error('OAuth callback error:', error);
-                  document.querySelector('.close-message').innerHTML = 
-                    'Error occurred. Please close this window manually.';
-                }
-              }
-              
-              addDebugLog('⏰ Starting OAuth callback in 100ms');
-              
-              // Start the close attempt after a brief delay
-              setTimeout(attemptClose, 100);
-              
-              // Also try after DOM is fully loaded as backup
-              if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', () => {
-                  addDebugLog('📄 DOM loaded - running backup attempt');
-                  setTimeout(attemptClose, 50);
-                });
-              }
-              
-              // Listen for beforeunload to log when window is actually closing
-              window.addEventListener('beforeunload', () => {
-                addDebugLog('👋 Window is closing...');
-              });
-              
-            })();
-          </script>
-        </body>
-      </html>
-    `;
+    console.log('📄 Creating SUCCESS HTML response for popup...');
+    // CRITICAL FIX: Enhanced HTML response with comprehensive popup handling
+    const html = createOAuthSuccessHTML(env, userInfo, sessionId, sessionToken);
     
+    const responseHeaders = {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Set-Cookie': [
+        createSecureCookie('auth_token', sessionToken, 86400), // 24 hours
+        createSecureCookie('session_id', sessionId, 86400 * 7) // 7 days
+      ].join(', '),
+      // CRITICAL: Enhanced cross-origin communication for OAuth popup
+      'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
+      'Cross-Origin-Embedder-Policy': 'unsafe-none',
+      'Referrer-Policy': 'strict-origin-when-cross-origin',
+      'X-Frame-Options': 'SAMEORIGIN',
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    };
+
+    console.log('🚀 Returning SUCCESS response to popup');
     return new Response(html, {
       status: 200,
-      headers: {
-        'Content-Type': 'text/html',
-        'Set-Cookie': [
-          createSecureCookie('auth_token', sessionToken, 86400), // 24 hours
-          createSecureCookie('session_id', sessionId, 86400 * 7) // 7 days
-        ].join(', '),
-        // CRITICAL: Enhanced cross-origin communication for OAuth popup
-        'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
-        'Cross-Origin-Embedder-Policy': 'unsafe-none',
-        'Referrer-Policy': 'strict-origin-when-cross-origin',
-        'X-Frame-Options': 'SAMEORIGIN',
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0'
-      }
+      headers: responseHeaders
     });
     
   } catch (error) {
-    console.error('OAuth callback error:', error);
+    console.error('💥 OAuth callback error:', error.message);
+    console.error('📚 Stack trace:', error.stack);
     return createOAuthErrorResponse('auth_failed', `Authentication failed: ${error.message}`, env);
+  }
+}
+
+// ENHANCED: Create comprehensive OAuth success HTML with robust popup communication
+function createOAuthSuccessHTML(env, userInfo, sessionId, sessionToken) {
+  return `
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authentication Complete - Lucaverse</title>
+    <style>
+      body {
+        font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        background: linear-gradient(135deg, #040810 0%, #0a1a2a 100%);
+        color: #00E5FF;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        margin: 0;
+        text-align: center;
+        overflow: hidden;
+      }
+      .container {
+        padding: 40px;
+        max-width: 500px;
+        background: rgba(0, 0, 0, 0.3);
+        border-radius: 15px;
+        border: 1px solid rgba(0, 229, 255, 0.2);
+        backdrop-filter: blur(10px);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+      }
+      .success-icon {
+        font-size: 60px;
+        margin-bottom: 20px;
+        animation: pulse 2s infinite;
+      }
+      @keyframes pulse {
+        0%, 100% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.1); opacity: 0.8; }
+      }
+      .spinner {
+        width: 40px;
+        height: 40px;
+        border: 4px solid rgba(0, 229, 255, 0.3);
+        border-top: 4px solid #00E5FF;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 20px;
+      }
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      .success-message {
+        color: #00FFCC;
+        font-size: 18px;
+        font-weight: 600;
+        margin-bottom: 15px;
+      }
+      .user-info {
+        color: rgba(255, 255, 255, 0.9);
+        font-size: 16px;
+        margin-bottom: 20px;
+      }
+      .close-message {
+        color: rgba(255, 255, 255, 0.7);
+        font-size: 14px;
+        margin-bottom: 20px;
+      }
+      .debug-info {
+        color: rgba(255, 255, 255, 0.5);
+        font-size: 11px;
+        font-family: 'Courier New', monospace;
+        background: rgba(0, 0, 0, 0.4);
+        border-radius: 8px;
+        padding: 15px;
+        margin-top: 20px;
+        text-align: left;
+        max-height: 200px;
+        overflow-y: auto;
+        border: 1px solid rgba(0, 229, 255, 0.1);
+      }
+      .debug-entry {
+        margin-bottom: 5px;
+        word-break: break-all;
+      }
+      .timestamp {
+        color: rgba(0, 229, 255, 0.6);
+        font-weight: bold;
+      }
+      .status-success { color: #00FFCC; }
+      .status-error { color: #FF6B6B; }
+      .status-warning { color: #FFD700; }
+      .status-info { color: #00E5FF; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="success-icon">✅</div>
+      <div class="success-message">Authentication Successful!</div>
+      <div class="user-info">Welcome, ${userInfo.name || userInfo.email}!</div>
+      <div class="spinner"></div>
+      <div class="close-message">Redirecting to dashboard...</div>
+      <div class="debug-info" id="debug-info">
+        <div class="debug-entry status-info">
+          <span class="timestamp">[INIT]</span> OAuth callback script starting...
+        </div>
+      </div>
+    </div>
+    
+    <script>
+      (function() {
+        'use strict';
+        
+        // Configuration
+        const CONFIG = {
+          frontendUrl: '${env.FRONTEND_URL}',
+          workerOrigin: window.location.origin,
+          maxRetryAttempts: 5,
+          retryDelay: 500,
+          timeoutMs: 10000
+        };
+        
+        // Debug logging
+        const debugInfo = document.getElementById('debug-info');
+        let debugCount = 0;
+        
+        function addDebugLog(message, status = 'info') {
+          debugCount++;
+          const timestamp = new Date().toISOString().slice(11, 23);
+          const entry = document.createElement('div');
+          entry.className = \`debug-entry status-\${status}\`;
+          entry.innerHTML = \`<span class="timestamp">[\${timestamp}]</span> \${message}\`;
+          debugInfo.appendChild(entry);
+          debugInfo.scrollTop = debugInfo.scrollHeight;
+          console.log(\`[OAuth-\${debugCount}] \${message}\`);
+          
+          // Limit debug entries to prevent memory issues
+          if (debugCount > 50) {
+            const firstEntry = debugInfo.querySelector('.debug-entry');
+            if (firstEntry) firstEntry.remove();
+          }
+        }
+        
+        // Authentication data
+        const authData = {
+          type: 'OAUTH_SUCCESS',
+          timestamp: Date.now(),
+          user: {
+            email: '${userInfo.email}',
+            name: '${userInfo.name || ''}',
+            id: '${userInfo.id || ''}'
+          },
+          sessionId: '${sessionId}',
+          debug: {
+            workerOrigin: CONFIG.workerOrigin,
+            frontendUrl: CONFIG.frontendUrl,
+            userAgent: navigator.userAgent,
+            timestamp: new Date().toISOString()
+          }
+        };
+        
+        addDebugLog('OAuth callback initialized', 'success');
+        addDebugLog(\`Frontend URL: \${CONFIG.frontendUrl}\`);
+        addDebugLog(\`Worker Origin: \${CONFIG.workerOrigin}\`);
+        addDebugLog(\`Window opener exists: \${!!window.opener}\`);
+        addDebugLog(\`Window parent exists: \${!!window.parent && window.parent !== window}\`);
+        addDebugLog(\`Window top exists: \${!!window.top && window.top !== window}\`);
+        
+        // Popup communication manager
+        class PopupCommunicator {
+          constructor() {
+            this.attempts = 0;
+            this.maxAttempts = CONFIG.maxRetryAttempts;
+            this.messageSent = false;
+            this.windowClosed = false;
+          }
+          
+          async sendMessage() {
+            addDebugLog('Starting message transmission attempts', 'info');
+            
+            const targets = this.getTargetWindows();
+            addDebugLog(\`Found \${targets.length} potential target windows\`);
+            
+            for (let attempt = 1; attempt <= this.maxAttempts; attempt++) {
+              addDebugLog(\`Attempt \${attempt}/\${this.maxAttempts}: Sending messages\`, 'info');
+              
+              let attemptSuccess = false;
+              
+              for (const target of targets) {
+                if (await this.sendToTarget(target)) {
+                  attemptSuccess = true;
+                  this.messageSent = true;
+                }
+              }
+              
+              if (attemptSuccess) {
+                addDebugLog('Message sent successfully!', 'success');
+                break;
+              }
+              
+              if (attempt < this.maxAttempts) {
+                addDebugLog(\`Attempt \${attempt} failed, retrying in \${CONFIG.retryDelay}ms...\`, 'warning');
+                await this.delay(CONFIG.retryDelay);
+              }
+            }
+            
+            if (!this.messageSent) {
+              addDebugLog('All message attempts failed', 'error');
+            }
+          }
+          
+          getTargetWindows() {
+            const targets = [];
+            
+            if (window.opener && !window.opener.closed) {
+              targets.push({
+                window: window.opener,
+                name: 'opener',
+                origins: [CONFIG.frontendUrl, '*']
+              });
+            }
+            
+            if (window.parent && window.parent !== window) {
+              targets.push({
+                window: window.parent,
+                name: 'parent',
+                origins: [CONFIG.frontendUrl, '*']
+              });
+            }
+            
+            if (window.top && window.top !== window && window.top !== window.parent) {
+              targets.push({
+                window: window.top,
+                name: 'top',
+                origins: [CONFIG.frontendUrl, '*']
+              });
+            }
+            
+            return targets;
+          }
+          
+          async sendToTarget(target) {
+            let success = false;
+            
+            for (const origin of target.origins) {
+              try {
+                addDebugLog(\`Sending to \${target.name} with origin: \${origin}\`);
+                target.window.postMessage(authData, origin);
+                success = true;
+                addDebugLog(\`✅ Message sent to \${target.name} (\${origin})\`, 'success');
+                break;
+              } catch (error) {
+                addDebugLog(\`❌ Failed to send to \${target.name} (\${origin}): \${error.message}\`, 'error');
+              }
+            }
+            
+            return success;
+          }
+          
+          async closeWindow() {
+            addDebugLog('Starting window close sequence', 'info');
+            
+            const closeAttempts = [
+              { delay: 100, method: 'immediate' },
+              { delay: 500, method: 'delayed' },
+              { delay: 1000, method: 'force' },
+              { delay: 2000, method: 'navigation' }
+            ];
+            
+            for (const attempt of closeAttempts) {
+              setTimeout(() => {
+                if (this.windowClosed) return;
+                
+                addDebugLog(\`Close attempt: \${attempt.method}\`, 'info');
+                
+                switch (attempt.method) {
+                  case 'immediate':
+                  case 'delayed':
+                  case 'force':
+                    try {
+                      window.close();
+                      if (window.closed) {
+                        addDebugLog('Window closed successfully', 'success');
+                        this.windowClosed = true;
+                      }
+                    } catch (error) {
+                      addDebugLog(\`Close failed: \${error.message}\`, 'error');
+                    }
+                    break;
+                    
+                  case 'navigation':
+                    if (!this.windowClosed) {
+                      try {
+                        addDebugLog('Attempting navigation to about:blank', 'warning');
+                        window.location.href = 'about:blank';
+                      } catch (error) {
+                        addDebugLog(\`Navigation failed: \${error.message}\`, 'error');
+                      }
+                    }
+                    break;
+                }
+              }, attempt.delay);
+            }
+            
+            // Final fallback - show manual close message
+            setTimeout(() => {
+              if (!this.windowClosed) {
+                addDebugLog('All close attempts failed - manual intervention required', 'error');
+                document.querySelector('.close-message').innerHTML = 
+                  'Please close this window manually to complete authentication.';
+                document.querySelector('.spinner').style.display = 'none';
+              }
+            }, 5000);
+          }
+          
+          delay(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+          }
+        }
+        
+        // Initialize and run
+        async function runOAuthCallback() {
+          try {
+            addDebugLog('Creating popup communicator', 'info');
+            const communicator = new PopupCommunicator();
+            
+            // Send authentication success message
+            await communicator.sendMessage();
+            
+            // Wait a moment for message processing
+            await communicator.delay(200);
+            
+            // Attempt to close the window
+            await communicator.closeWindow();
+            
+          } catch (error) {
+            addDebugLog(\`Critical error in OAuth callback: \${error.message}\`, 'error');
+            console.error('OAuth callback error:', error);
+            
+            // Show error to user
+            document.querySelector('.success-message').textContent = 'Authentication completed with warnings';
+            document.querySelector('.close-message').innerHTML = 
+              'Please close this window manually. If the main page does not update, please refresh it.';
+          }
+        }
+        
+        // Event listeners
+        window.addEventListener('beforeunload', () => {
+          addDebugLog('Window is being closed', 'info');
+        });
+        
+        window.addEventListener('error', (event) => {
+          addDebugLog(\`JavaScript error: \${event.error?.message || event.message}\`, 'error');
+        });
+        
+        // Start the process
+        addDebugLog('Starting OAuth callback process in 100ms', 'info');
+        setTimeout(runOAuthCallback, 100);
+        
+        // Backup execution on DOM ready
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => {
+              addDebugLog('DOM ready - running backup execution', 'warning');
+              runOAuthCallback();
+            }, 200);
+          });
+        }
+        
+      })();
+    </script>
+  </body>
+</html>`;
+}
+
+// Create OAuth error response with popup that sends error to parent - ENHANCED
+function createOAuthErrorResponse(errorCode, errorMessage, env) {
+  console.log('🚨 Creating ENHANCED OAuth error response:', { errorCode, errorMessage });
+  
+  const html = `
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authentication Error - Lucaverse</title>
+    <style>
+      body {
+        font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        background: linear-gradient(135deg, #040810 0%, #2a0a0a 100%);
+        color: #FF6B6B;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        margin: 0;
+        text-align: center;
+        overflow: hidden;
+      }
+      .container {
+        padding: 40px;
+        max-width: 500px;
+        background: rgba(0, 0, 0, 0.3);
+        border-radius: 15px;
+        border: 1px solid rgba(255, 107, 107, 0.2);
+        backdrop-filter: blur(10px);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+      }
+      .error-icon {
+        font-size: 60px;
+        margin-bottom: 20px;
+        animation: shake 1s ease-in-out;
+      }
+      @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        25% { transform: translateX(-5px); }
+        75% { transform: translateX(5px); }
+      }
+      .error-message {
+        color: #FF6B6B;
+        font-size: 18px;
+        font-weight: 600;
+        margin-bottom: 15px;
+      }
+      .error-details {
+        color: rgba(255, 255, 255, 0.8);
+        font-size: 14px;
+        margin-bottom: 20px;
+      }
+      .close-message {
+        color: rgba(255, 255, 255, 0.7);
+        font-size: 14px;
+        margin-bottom: 20px;
+      }
+      .debug-info {
+        color: rgba(255, 255, 255, 0.5);
+        font-size: 11px;
+        font-family: 'Courier New', monospace;
+        background: rgba(0, 0, 0, 0.4);
+        border-radius: 8px;
+        padding: 15px;
+        margin-top: 20px;
+        text-align: left;
+        border: 1px solid rgba(255, 107, 107, 0.1);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="error-icon">⚠️</div>
+      <div class="error-message">Authentication Failed</div>
+      <div class="error-details">Please try again or contact support if the problem persists.</div>
+      <div class="close-message">This window will close automatically...</div>
+      <div class="debug-info" id="debug-info">
+        Error Code: ${errorCode}<br>
+        Details: ${errorMessage}
+      </div>
+    </div>
+    
+    <script>
+      (function() {
+        'use strict';
+        
+        const debugInfo = document.getElementById('debug-info');
+        
+        function addDebugLog(message) {
+          const timestamp = new Date().toISOString().slice(11, 23);
+          debugInfo.innerHTML += '<br>' + timestamp + ' - ' + message;
+          debugInfo.scrollTop = debugInfo.scrollHeight;
+          console.log(message);
+        }
+        
+        addDebugLog('OAuth error callback started');
+        addDebugLog('Error Code: ${errorCode}');
+        addDebugLog('Error Message: ${errorMessage}');
+        
+        function attemptErrorClose() {
+          try {
+            const errorData = {
+              type: 'OAUTH_ERROR',
+              error: '${errorMessage}',
+              errorCode: '${errorCode}',
+              timestamp: Date.now(),
+              debug: {
+                workerOrigin: window.location.origin,
+                frontendUrl: '${env.FRONTEND_URL}',
+                timestamp: new Date().toISOString()
+              }
+            };
+            
+            addDebugLog('Sending error message to parent windows');
+            
+            const targets = [];
+            if (window.opener && !window.opener.closed) targets.push({ win: window.opener, name: 'opener' });
+            if (window.parent && window.parent !== window) targets.push({ win: window.parent, name: 'parent' });
+            if (window.top && window.top !== window) targets.push({ win: window.top, name: 'top' });
+            
+            let messageSent = false;
+            
+            targets.forEach(target => {
+              try {
+                // Try specific origin first
+                target.win.postMessage(errorData, '${env.FRONTEND_URL}');
+                addDebugLog(\`Error sent to \${target.name} (specific origin)\`);
+                messageSent = true;
+              } catch (e) {
+                try {
+                  // Fallback to wildcard
+                  target.win.postMessage(errorData, '*');
+                  addDebugLog(\`Error sent to \${target.name} (wildcard)\`);
+                  messageSent = true;
+                } catch (e2) {
+                  addDebugLog(\`Failed to send to \${target.name}: \${e2.message}\`);
+                }
+              }
+            });
+            
+            if (!messageSent) {
+              addDebugLog('No error message could be sent to any target');
+            }
+            
+            // Close window attempts
+            setTimeout(() => {
+              addDebugLog('Attempting to close window');
+              try {
+                window.close();
+              } catch (e) {
+                addDebugLog('Window close failed: ' + e.message);
+              }
+            }, 1000);
+            
+            setTimeout(() => {
+              if (!window.closed) {
+                addDebugLog('Forcing window close');
+                try {
+                  window.location.href = 'about:blank';
+                } catch (e) {
+                  addDebugLog('Navigation failed: ' + e.message);
+                }
+              }
+            }, 3000);
+            
+          } catch (error) {
+            addDebugLog('Critical error in error handler: ' + error.message);
+            console.error('OAuth error callback error:', error);
+          }
+        }
+        
+        setTimeout(attemptErrorClose, 100);
+        
+      })();
+    </script>
+  </body>
+</html>`;
+  
+  return new Response(html, {
+    status: 200,
+    headers: {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
+      'Cross-Origin-Embedder-Policy': 'unsafe-none',
+      'X-Frame-Options': 'SAMEORIGIN',
+      'Cache-Control': 'no-cache, no-store, must-revalidate'
+    }
+  });
+}
+
+// Check if user email is whitelisted - ENHANCED
+async function checkWhitelist(email, env) {
+  try {
+    console.log('🔍 Checking whitelist for email:', email);
+    
+    const whitelistData = await env.USER_WHITELIST.get('users');
+    console.log('📄 Whitelist data retrieved:', whitelistData ? 'present' : 'missing');
+    
+    if (!whitelistData) {
+      console.log('❌ No whitelist data found in KV store');
+      return false;
+    }
+    
+    const whitelist = JSON.parse(whitelistData);
+    console.log('📋 Parsed whitelist:', { 
+      hasEmails: !!whitelist.emails, 
+      emailCount: whitelist.emails ? whitelist.emails.length : 0,
+      emails: whitelist.emails || []
+    });
+    
+    const isWhitelisted = whitelist.emails && whitelist.emails.includes(email);
+    console.log('🔍 Whitelist check result:', isWhitelisted ? 'APPROVED' : 'DENIED');
+    
+    return isWhitelisted;
+  } catch (error) {
+    console.error('💥 Whitelist check error:', error.message);
+    console.error('📚 Stack trace:', error.stack);
+    return false;
   }
 }
 
@@ -686,204 +1072,6 @@ async function handleLogout(request, env) {
     status: 200,
     headers
   });
-}
-
-// Create OAuth error response with popup that sends error to parent
-function createOAuthErrorResponse(errorCode, errorMessage, env) {
-  console.log('🚨 Creating OAuth error response:', { errorCode, errorMessage });
-  
-  const html = `
-    <!DOCTYPE html>
-    <html lang="en">
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Authentication Error</title>
-        <style>
-          body {
-            font-family: 'Space Grotesk', sans-serif;
-            background: #040810;
-            color: #FF6B6B;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            margin: 0;
-            text-align: center;
-          }
-          .message {
-            padding: 20px;
-            max-width: 400px;
-          }
-          .error-icon {
-            font-size: 48px;
-            margin-bottom: 20px;
-          }
-          .error-message {
-            color: #FF6B6B;
-            font-size: 16px;
-            margin-bottom: 10px;
-          }
-          .close-message {
-            color: rgba(255, 255, 255, 0.7);
-            font-size: 14px;
-          }
-          .debug-info {
-            color: rgba(255, 255, 255, 0.5);
-            font-size: 12px;
-            margin-top: 20px;
-            padding: 10px;
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 5px;
-            font-family: monospace;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="message">
-          <div class="error-icon">⚠️</div>
-          <div class="error-message">Authentication failed</div>
-          <div class="close-message">This window will close automatically...</div>
-          <div class="debug-info" id="debug-info">
-            Error: ${errorCode}
-          </div>
-        </div>
-        
-        <script>
-          (function() {
-            'use strict';
-            
-            const debugInfo = document.getElementById('debug-info');
-            
-            function addDebugLog(message) {
-              console.log(message);
-              debugInfo.innerHTML += '<br>' + new Date().toISOString().slice(11, 23) + ' - ' + message;
-              debugInfo.scrollTop = debugInfo.scrollHeight;
-            }
-            
-            addDebugLog('🚨 OAuth error callback started');
-            addDebugLog('❌ Error: ${errorCode}');
-            addDebugLog('📝 Message: ${errorMessage}');
-            addDebugLog('🔗 Window opener exists: ' + !!window.opener);
-            
-            function attemptErrorClose() {
-              try {
-                addDebugLog('📤 Sending error message to parent');
-                
-                const message = {
-                  type: 'OAUTH_ERROR',
-                  error: '${errorMessage}',
-                  errorCode: '${errorCode}',
-                  timestamp: Date.now(),
-                  debug: {
-                    workerOrigin: window.location.origin,
-                    frontendUrl: '${env.FRONTEND_URL}'
-                  }
-                };
-                
-                let messageSent = false;
-                
-                if (window.opener && !window.opener.closed) {
-                  addDebugLog('📨 Attempting to send error to opener');
-                  
-                  try {
-                    window.opener.postMessage(message, '${env.FRONTEND_URL}');
-                    addDebugLog('✅ Error message sent to ${env.FRONTEND_URL}');
-                    messageSent = true;
-                  } catch (e) {
-                    addDebugLog('❌ Failed to send to ${env.FRONTEND_URL}: ' + e.message);
-                    
-                    try {
-                      window.opener.postMessage(message, '*');
-                      addDebugLog('✅ Error message sent with wildcard origin');
-                      messageSent = true;
-                    } catch (e2) {
-                      addDebugLog('❌ Failed wildcard send: ' + e2.message);
-                    }
-                  }
-                } else {
-                  addDebugLog('⚠️ No window.opener or opener is closed');
-                }
-                
-                if (!messageSent) {
-                  addDebugLog('🚨 No error message could be sent!');
-                }
-                
-                // Close window attempts
-                addDebugLog('🚪 Starting window close attempts');
-                
-                setTimeout(() => {
-                  addDebugLog('🚪 Attempt 1: Immediate close');
-                  try {
-                    window.close();
-                  } catch (e) {
-                    addDebugLog('❌ Window close failed: ' + e.message);
-                  }
-                }, 100);
-                
-                setTimeout(() => {
-                  if (!window.closed) {
-                    addDebugLog('🚪 Attempt 2: Force close after delay');
-                    try {
-                      window.close();
-                    } catch (e) {
-                      addDebugLog('❌ Force close failed: ' + e.message);
-                    }
-                  }
-                }, 1000);
-                
-                setTimeout(() => {
-                  if (!window.closed) {
-                    addDebugLog('🚪 Attempt 3: Navigation to about:blank');
-                    try {
-                      window.location.href = 'about:blank';
-                    } catch (e) {
-                      addDebugLog('❌ Navigation failed: ' + e.message);
-                    }
-                  }
-                }, 2000);
-                
-              } catch (error) {
-                addDebugLog('💥 Critical error in attemptErrorClose: ' + error.message);
-                console.error('OAuth error callback error:', error);
-              }
-            }
-            
-            addDebugLog('⏰ Starting OAuth error callback in 100ms');
-            setTimeout(attemptErrorClose, 100);
-            
-          })();
-        </script>
-      </body>
-    </html>
-  `;
-  
-  return new Response(html, {
-    status: 200,
-    headers: {
-      'Content-Type': 'text/html',
-      'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
-      'Cross-Origin-Embedder-Policy': 'unsafe-none',
-      'X-Frame-Options': 'SAMEORIGIN',
-      'Cache-Control': 'no-cache, no-store, must-revalidate'
-    }
-  });
-}
-
-// Check if user email is whitelisted
-async function checkWhitelist(email, env) {
-  try {
-    const whitelistData = await env.USER_WHITELIST.get('users');
-    if (!whitelistData) {
-      return false;
-    }
-    
-    const whitelist = JSON.parse(whitelistData);
-    return whitelist.emails && whitelist.emails.includes(email);
-  } catch (error) {
-    console.error('Whitelist check error:', error);
-    return false;
-  }
 }
 
 // Utility functions
