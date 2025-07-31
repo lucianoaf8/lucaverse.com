@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next';
 import TronGrid from '../Background/TronGrid.tsx';
 import { createOAuthSecurityParams, validateMessageSource, oauthStorage } from '../../utils/oauth-security.js';
 import { logger } from '../../utils/logger.js';
-import { ENV_CONFIG } from '../../config/environment.js';
 import styles from './LucaverseLogin.module.css';
 
 const LucaverseLogin = () => {
@@ -38,8 +37,7 @@ const LucaverseLogin = () => {
       const top = (window.screen.height / 2) - (popupHeight / 2);
       
       // Build secure OAuth URL with state and PKCE parameters
-      // Use environment-specific worker URL
-      const oauthUrl = new URL(`${ENV_CONFIG.authWorkerUrl}/auth/google`);
+      const oauthUrl = new URL('https://lucaverse-auth.lucianoaf8.workers.dev/auth/google');
       oauthUrl.searchParams.set('state', securityParams.state);
       oauthUrl.searchParams.set('code_challenge', securityParams.codeChallenge);
       oauthUrl.searchParams.set('code_challenge_method', securityParams.codeChallengeMethod || 'S256');
@@ -79,9 +77,10 @@ const LucaverseLogin = () => {
 
       // Listen for messages from the popup
       const messageHandler = (event) => {
-        // Enhanced security validation
-        if (!validateMessageSource(event, popup, window.location.origin)) {
-          logger.security('Invalid message source', { origin: event.origin });
+        // Enhanced security validation - check against worker origin instead of current origin
+        const expectedWorkerOrigin = 'https://lucaverse-auth.lucianoaf8.workers.dev';
+        if (!validateMessageSource(event, popup, expectedWorkerOrigin)) {
+          logger.security('Invalid message source', { origin: event.origin, expected: expectedWorkerOrigin });
           return;
         }
 

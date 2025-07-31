@@ -6,7 +6,6 @@
 
 import { logger } from './logger.js';
 import { authenticatedFetch, checkAuthStatus, logout } from './auth.js';
-import { ENV_CONFIG } from '../config/environment.js';
 
 // Session configuration
 const SESSION_CONFIG = {
@@ -336,7 +335,7 @@ class SessionManager {
         
         // Attempt token refresh
         const response = await authenticatedFetch(
-          `${ENV_CONFIG.authWorkerUrl}/auth/refresh`,
+          'https://lucaverse-auth.lucianoaf8.workers.dev/auth/refresh',
           { method: 'POST' }
         );
         
@@ -389,7 +388,7 @@ class SessionManager {
       
       // Attempt server-side extension
       const response = await authenticatedFetch(
-        `${ENV_CONFIG.authWorkerUrl}/auth/extend`,
+        'https://lucaverse-auth.lucianoaf8.workers.dev/auth/extend',
         { 
           method: 'POST',
           headers: {

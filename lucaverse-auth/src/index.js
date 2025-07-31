@@ -362,36 +362,62 @@ async function handleGoogleCallback(request, env) {
               function attemptClose() {
                 try {
                   // Always attempt to send the message, even if opener seems null
+                  const message = {
+                    type: 'OAUTH_SUCCESS',
+                    timestamp: Date.now()
+                  };
+                  
                   if (window.opener) {
                     console.log('Sending success message to opener');
-                    window.opener.postMessage({
-                      type: 'OAUTH_SUCCESS',
-                      timestamp: Date.now()
-                    }, '${env.FRONTEND_URL}');
+                    // Try multiple origins to ensure message delivery
+                    try {
+                      window.opener.postMessage(message, '${env.FRONTEND_URL}');
+                    } catch (e) {
+                      console.warn('Failed to send to FRONTEND_URL, trying wildcard:', e);
+                      window.opener.postMessage(message, '*');
+                    }
                   } else {
                     console.log('No window.opener detected, but still attempting postMessage');
                     // Sometimes window.opener is null but parent can still receive messages
                     if (window.parent && window.parent !== window) {
-                      window.parent.postMessage({
-                        type: 'OAUTH_SUCCESS',
-                        timestamp: Date.now()
-                      }, '${env.FRONTEND_URL}');
+                      try {
+                        window.parent.postMessage(message, '${env.FRONTEND_URL}');
+                      } catch (e) {
+                        console.warn('Failed to send to parent, trying wildcard:', e);
+                        window.parent.postMessage(message, '*');
+                      }
                     }
                   }
                   
-                  // Multiple attempts to close the window
+                  // Multiple attempts to close the window with better timing
                   setTimeout(() => {
                     console.log('Attempting to close window');
-                    window.close();
-                  }, 300);
+                    try {
+                      window.close();
+                    } catch (e) {
+                      console.warn('Window close failed:', e);
+                    }
+                  }, 100);
                   
                   // Fallback close attempt
                   setTimeout(() => {
                     if (!window.closed) {
                       console.log('Window still open, attempting force close');
-                      window.close();
+                      try {
+                        window.close();
+                      } catch (e) {
+                        console.warn('Force close failed:', e);
+                      }
                     }
-                  }, 1000);
+                  }, 500);
+                  
+                  // Alternative approach - navigate away to ensure close
+                  setTimeout(() => {
+                    if (!window.closed) {
+                      console.log('Attempting navigation approach');
+                      window.location = 'about:blank';
+                    }
+                  }, 1500);
                   
                   // Final fallback - show user message
                   setTimeout(() => {

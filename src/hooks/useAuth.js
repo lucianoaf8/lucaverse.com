@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { logger } from '../utils/logger.js';
-import { ENV_CONFIG } from '../config/environment.js';
 import sessionManager from '../utils/sessionManager.js';
 
 export const useAuth = () => {
@@ -15,7 +14,7 @@ export const useAuth = () => {
       // Verify authentication status via API call (cookies will be sent automatically)
       try {
         const response = await fetch(
-          `${ENV_CONFIG.authWorkerUrl}/auth/verify`,
+          'https://lucaverse-auth.lucianoaf8.workers.dev/auth/verify',
           {
             method: 'GET',
             credentials: 'include', // Important: this sends cookies with the request
@@ -49,7 +48,7 @@ export const useAuth = () => {
       // Cleanup session management
       sessionManager.cleanup();
       
-      await fetch(`${ENV_CONFIG.authWorkerUrl}/auth/logout`, {
+      await fetch('https://lucaverse-auth.lucianoaf8.workers.dev/auth/logout', {
         method: 'POST',
         credentials: 'include', // Important: this sends cookies with the request
         headers: {
