@@ -24,7 +24,11 @@ export default {
       'Cross-Origin-Embedder-Policy': 'unsafe-none',
       'Referrer-Policy': 'strict-origin-when-cross-origin',
       'X-Content-Type-Options': 'nosniff',
-      'X-Frame-Options': 'SAMEORIGIN'
+      'X-Frame-Options': 'SAMEORIGIN',
+      // CRITICAL: CDN/Cache prevention for OAuth endpoints
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
     };
 
     if (request.method === 'OPTIONS') {
@@ -186,10 +190,54 @@ async function handleGoogleAuth(request, env) {
     const codeChallenge = url.searchParams.get('code_challenge');
     const codeChallengeMethod = url.searchParams.get('code_challenge_method');
     const sessionId = url.searchParams.get('session_id');
+    const codeVerifier = url.searchParams.get('code_verifier'); // CRITICAL FIX: Get code_verifier from frontend
+    
+    console.log('🔍 OAuth Parameters Debug:', {
+      hasState: !!state,
+      hasCodeChallenge: !!codeChallenge,
+      hasCodeVerifier: !!codeVerifier, // This should now be true
+      hasSessionId: !!sessionId,
+      codeChallengeMethod,
+      codeVerifierLength: codeVerifier?.length || 0,
+      codeChallengeLength: codeChallenge?.length || 0
+    });
+    
+    // KV Health Check as per plan
+    const kvTestKey = `health_check_${Date.now()}`;
+    const kvTestData = { test: true, timestamp: Date.now() };
+    
+    try {
+      // Test KV write
+      await env.OAUTH_SESSIONS.put(kvTestKey, JSON.stringify(kvTestData), {
+        expirationTtl: 60 // 1 minute
+      });
+      console.log('✅ KV Write successful');
+      
+      // Test KV read
+      const retrievedData = await env.OAUTH_SESSIONS.get(kvTestKey);
+      if (retrievedData) {
+        const parsed = JSON.parse(retrievedData);
+        console.log('✅ KV Read successful:', parsed);
+      } else {
+        console.log('❌ KV Read failed: No data retrieved');
+      }
+      
+      // Test KV delete
+      await env.OAUTH_SESSIONS.delete(kvTestKey);
+      console.log('✅ KV Delete successful');
+      
+    } catch (error) {
+      console.log('❌ KV Health Check failed:', error);
+    }
     
     // Validate required security parameters
-    if (!state || !codeChallenge || !sessionId) {
-      console.error('🚨 OAuth Security: Missing required parameters');
+    if (!state || !codeChallenge || !sessionId || !codeVerifier) {
+      console.error('🚨 OAuth Security: Missing required parameters', {
+        missingState: !state,
+        missingCodeChallenge: !codeChallenge,
+        missingCodeVerifier: !codeVerifier, // Now checking for code_verifier too
+        missingSessionId: !sessionId
+      });
       return new Response('Missing OAuth security parameters', { status: 400 });
     }
     
@@ -209,6 +257,7 @@ async function handleGoogleAuth(request, env) {
     const oauthParams = {
       state,
       codeChallenge,
+      codeVerifier, // CRITICAL FIX: Store the code_verifier for token exchange
       codeChallengeMethod,
       sessionId,
       timestamp: Date.now()
@@ -306,28 +355,54 @@ async function handleGoogleCallback(request, env) {
     await env.OAUTH_SESSIONS.delete(`oauth_state_${state}`);
     
     console.log('🔄 Exchanging authorization code for tokens...');
+    
+    // CRITICAL FIX: Add code_verifier to token exchange (the missing PKCE parameter!)
+    const tokenRequestBody = new URLSearchParams({
+      client_id: env.GOOGLE_CLIENT_ID,
+      client_secret: env.GOOGLE_CLIENT_SECRET,
+      code: code,
+      grant_type: 'authorization_code',
+      redirect_uri: `${env.WORKER_URL}/auth/google/callback`,
+      code_verifier: storedParams.codeVerifier // ✅ NOW CORRECT: Using actual code_verifier!
+    });
+    
+    console.log('🚀 Google Token Request Debug:', {
+      url: 'https://oauth2.googleapis.com/token',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      bodyParams: {
+        client_id: env.GOOGLE_CLIENT_ID,
+        grant_type: 'authorization_code',
+        redirect_uri: `${env.WORKER_URL}/auth/google/callback`,
+        hasCode: !!code,
+        hasClientSecret: !!env.GOOGLE_CLIENT_SECRET,
+        hasCodeVerifier: !!storedParams.codeVerifier, // ✅ Now correctly checking codeVerifier
+        codeVerifierSource: 'storedParams.codeVerifier (FIXED!)',
+        codeVerifierLength: storedParams.codeVerifier?.length || 0
+      }
+    });
+    
     // Exchange code for tokens using PKCE
     const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
-      body: new URLSearchParams({
-        client_id: env.GOOGLE_CLIENT_ID,
-        client_secret: env.GOOGLE_CLIENT_SECRET,
-        code: code,
-        grant_type: 'authorization_code',
-        redirect_uri: `${env.WORKER_URL}/auth/google/callback`,
-      }),
+      body: tokenRequestBody,
     });
 
     console.log('📤 Token exchange response status:', tokenResponse.status);
     console.log('📤 Token exchange response headers:', Object.fromEntries(tokenResponse.headers));
     
     const tokens = await tokenResponse.json();
-    console.log('📤 Token exchange response body:', {
+    console.log('📥 Google Token Response:', {
+      status: tokenResponse.status,
+      statusText: tokenResponse.statusText, 
       hasAccessToken: !!tokens.access_token,
       hasRefreshToken: !!tokens.refresh_token,
+      hasError: !!tokens.error,
       error: tokens.error,
       errorDescription: tokens.error_description,
       expiresIn: tokens.expires_in,

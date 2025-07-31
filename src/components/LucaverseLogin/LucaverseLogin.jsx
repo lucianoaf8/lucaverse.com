@@ -43,6 +43,10 @@ const LucaverseLogin = () => {
       oauthUrl.searchParams.set('code_challenge_method', securityParams.codeChallengeMethod || 'S256');
       oauthUrl.searchParams.set('session_id', securityParams.sessionId);
       
+      // CRITICAL FIX: Send code_verifier to worker for PKCE token exchange
+      // This is required for the worker to exchange the authorization code for tokens
+      oauthUrl.searchParams.set('code_verifier', securityParams.codeVerifier);
+      
       const popup = window.open(
         oauthUrl.toString(),
         'googleAuth',

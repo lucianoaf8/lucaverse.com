@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧪 Lucaverse Test Studio</title>
+    <link rel="stylesheet" href="test-runner-styles.css">
+</head>
+<body>
+    <!-- Main Layout Container -->
+    <div class="studio-layout">
+        <!-- Sidebar -->
+        <aside class="studio-sidebar">
+            <!-- Header -->
+            <div class="sidebar-header">
+                <h1>🧪 Test Studio</h1>
+                <div class="status-indicators">
+                    <div class="status-badge" id="status-badge">
+                        <span class="status-icon">⏸️</span>
+                        <span class="status-text">Ready</span>
+                    </div>
+                    <div class="time-indicator" id="time-indicator">
+                        <span class="time-icon">⏱️</span>
+                        <span class="time-text">00:00:00</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Test Configuration -->
+            <section class="sidebar-section">
+                <h3>🎯 Test Configuration</h3>
+                
+                <!-- Profile Management -->
+                <div class="profile-management">
+                    <select id="test-profiles" class="profile-selector">
+                        <option value="">Select Profile...</option>
+                        <option value="smoke">Smoke Tests</option>
+                        <option value="regression">Full Regression</option>
+                        <option value="critical">Critical Path</option>
+                    </select>
+                    <div class="profile-actions">
+                        <button class="btn btn-icon" id="save-profile" title="Save Profile">💾</button>
+                        <button class="btn btn-icon" id="manage-profiles" title="Manage">⚙️</button>
+                    </div>
+                </div>
+
+                <!-- Advanced Filters -->
+                <div class="advanced-filters">
+                    <div class="filter-group">
+                        <label>Search Tests</label>
+                        <div class="search-input">
+                            <input type="text" placeholder="Search tests..." id="test-search">
+                            <span class="search-icon">🔍</span>
+                        </div>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label>Priority</label>
+                        <select id="priority-filter">
+                            <option value="all">All Priorities</option>
+                            <option value="critical">Critical</option>
+                            <option value="high">High</option>
+                            <option value="medium">Medium</option>
+                            <option value="low">Low</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label>Test Suites</label>
+                        <div class="suite-checkboxes">
+                            <label class="checkbox-item">
+                                <input type="checkbox" id="unit-tests" checked>
+                                <span class="checkmark"></span>
+                                <span class="suite-name">Unit Tests</span>
+                                <span class="test-count">15</span>
+                            </label>
+                            <label class="checkbox-item">
+                                <input type="checkbox" id="gui-tests" checked>
+                                <span class="checkmark"></span>
+                                <span class="suite-name">GUI Tests</span>
+                                <span class="test-count">40</span>
+                            </label>
+                            <label class="checkbox-item">
+                                <input type="checkbox" id="integration-tests" checked>
+                                <span class="checkmark"></span>
+                                <span class="suite-name">Integration</span>
+                                <span class="test-count">12</span>
+                            </label>
+                            <label class="checkbox-item">
+                                <input type="checkbox" id="oauth-tests" checked>
+                                <span class="checkmark"></span>
+                                <span class="suite-name">OAuth Tests</span>
+                                <span class="test-count">25</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Test Queue -->
+            <section class="sidebar-section">
+                <div class="section-header">
+                    <h3>🔄 Test Queue</h3>
+                    <button class="btn btn-small" id="add-to-queue">Add</button>
+                </div>
+                <div class="queue-list" id="queue-list">
+                    <div class="queue-empty">
+                        <span class="empty-icon">📝</span>
+                        <span class="empty-text">No queued tests</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Performance Metrics -->
+            <section class="sidebar-section">
+                <h3>📊 Performance</h3>
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-value" id="avg-speed">0ms</div>
+                        <div class="metric-label">Avg Speed</div>
+                        <div class="metric-chart">
+                            <div class="mini-chart" id="speed-chart"></div>
+                        </div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value" id="memory-usage">0MB</div>
+                        <div class="metric-label">Memory</div>
+                        <div class="metric-chart">
+                            <div class="mini-chart" id="memory-chart"></div>
+                        </div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value" id="error-rate">0%</div>
+                        <div class="metric-label">Error Rate</div>
+                        <div class="metric-chart">
+                            <div class="mini-chart" id="error-chart"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Control Buttons -->
+            <section class="sidebar-section">
+                <div class="control-buttons">
+                    <button id="start-tests" class="btn btn-primary">
+                        <span class="btn-icon">▶️</span>
+                        Start Tests
+                    </button>
+                    <button id="stop-tests" class="btn btn-secondary" disabled>
+                        <span class="btn-icon">⏹️</span>
+                        Stop Tests
+                    </button>
+                    <div class="secondary-controls">
+                        <button id="clear-results" class="btn btn-tertiary">
+                            <span class="btn-icon">🗑️</span>
+                            Clear Results
+                        </button>
+                        <button id="export-report" class="btn btn-tertiary">
+                            <span class="btn-icon">📊</span>
+                            Export
+                        </button>
+                    </div>
+                </div>
+            </section>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="studio-main">
+            <!-- Progress Overview -->
+            <header class="main-header">
+                <div class="progress-stats">
+                    <div class="stat-card">
+                        <div class="stat-number" id="total-tests">0</div>
+                        <div class="stat-label">Total</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number passed" id="passed-tests">0</div>
+                        <div class="stat-label">Passed</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number failed" id="failed-tests">0</div>
+                        <div class="stat-label">Failed</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="skipped-tests">0</div>
+                        <div class="stat-label">Skipped</div>
+                    </div>
+                </div>
+                
+                <div class="progress-section">
+                    <div class="progress-ring" id="progress-ring">
+                        <div class="progress-ring-fill" id="progress-ring-fill"></div>
+                        <div class="progress-ring-text" id="progress-percentage">0%</div>
+                    </div>
+                    <div class="progress-info">
+                        <div class="progress-text" id="progress-text">Ready to start testing</div>
+                        <div class="progress-eta" id="progress-eta"></div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Tabbed Content Area -->
+            <div class="content-tabs">
+                <div class="tab-nav">
+                    <button class="tab-btn active" data-tab="execution">🏃‍♂️ Execution</button>
+                    <button class="tab-btn" data-tab="logs">📋 Logs</button>
+                    <button class="tab-btn" data-tab="analytics">📊 Analytics</button>
+                    <button class="tab-btn" data-tab="history">📈 History</button>
+                </div>
+
+                <!-- Test Execution Tab -->
+                <div class="tab-content active" id="execution-tab">
+                    <!-- Current Test Display -->
+                    <div class="current-test" id="current-test" style="display: none;">
+                        <div class="current-test-header">
+                            <span class="current-icon">🏃‍♂️</span>
+                            <span class="current-label">Running:</span>
+                            <span class="current-name" id="current-test-name">-</span>
+                        </div>
+                        <div class="current-progress">
+                            <div class="spinner"></div>
+                            <div class="current-eta" id="current-eta">Estimated: 2.3s</div>
+                        </div>
+                    </div>
+
+                    <!-- Test Results List -->
+                    <div class="test-results-container">
+                        <div class="results-header">
+                            <h3>Test Results</h3>
+                            <div class="results-controls">
+                                <button class="btn btn-small" id="filter-passed">✅ Passed</button>
+                                <button class="btn btn-small" id="filter-failed">❌ Failed</button>
+                                <button class="btn btn-small" id="filter-all">📋 All</button>
+                            </div>
+                        </div>
+                        <div class="test-results" id="test-results">
+                            <div class="no-tests">
+                                <span class="no-tests-icon">🏁</span>
+                                <span class="no-tests-text">No tests executed yet</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Logs Tab -->
+                <div class="tab-content" id="logs-tab">
+                    <div class="logs-header">
+                        <h3>Live Test Logs</h3>
+                        <div class="logs-controls">
+                            <button class="btn btn-small" id="clear-logs">🧹 Clear</button>
+                            <button class="btn btn-small" id="download-logs">💾 Download</button>
+                            <select id="log-level-filter">
+                                <option value="all">All Levels</option>
+                                <option value="error">Errors Only</option>
+                                <option value="warning">Warnings</option>
+                                <option value="info">Info</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="logs-content" id="logs-content">
+                        <div class="log-entry info">
+                            <span class="log-time">[00:00:00]</span>
+                            <span class="log-level">INFO</span>
+                            <span class="log-message">Test studio initialized</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Analytics Tab -->
+                <div class="tab-content" id="analytics-tab">
+                    <div class="analytics-grid">
+                        <div class="analytics-card">
+                            <h4>Test Suite Distribution</h4>
+                            <div class="chart-container">
+                                <canvas id="suite-distribution-chart"></canvas>
+                            </div>
+                        </div>
+                        <div class="analytics-card">
+                            <h4>Performance Trends</h4>
+                            <div class="chart-container">
+                                <canvas id="performance-trend-chart"></canvas>
+                            </div>
+                        </div>
+                        <div class="analytics-card">
+                            <h4>Success Rate Over Time</h4>
+                            <div class="chart-container">
+                                <canvas id="success-rate-chart"></canvas>
+                            </div>
+                        </div>
+                        <div class="analytics-card">
+                            <h4>Test Execution Speed</h4>
+                            <div class="chart-container">
+                                <canvas id="speed-distribution-chart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- History Tab -->
+                <div class="tab-content" id="history-tab">
+                    <div class="history-controls">
+                        <input type="date" id="date-from">
+                        <input type="date" id="date-to">
+                        <button class="btn btn-small" id="load-history">📅 Load History</button>
+                        <button class="btn btn-small" id="compare-runs">🔄 Compare</button>
+                    </div>
+                    <div class="history-list" id="history-list">
+                        <div class="history-empty">
+                            <span class="empty-icon">📈</span>
+                            <span class="empty-text">No test history available</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Final Report Panel -->
+            <div class="final-report glass-card" id="final-report" style="display: none;">
+                <div class="report-header">
+                    <h3>📊 Test Execution Report</h3>
+                    <div class="report-timestamp" id="report-timestamp"></div>
+                </div>
+                <div class="report-content" id="report-content"></div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Keyboard Shortcuts Help -->
+    <div class="shortcuts-help" id="shortcuts-help" style="display: none;">
+        <div class="shortcuts-content">
+            <h3>⌨️ Keyboard Shortcuts</h3>
+            <div class="shortcut-list">
+                <div class="shortcut-item">
+                    <kbd>Ctrl+R</kbd>
+                    <span>Start Tests</span>
+                </div>
+                <div class="shortcut-item">
+                    <kbd>Ctrl+S</kbd>
+                    <span>Stop Tests</span>
+                </div>
+                <div class="shortcut-item">
+                    <kbd>Ctrl+L</kbd>
+                    <span>Switch to Logs</span>
+                </div>
+                <div class="shortcut-item">
+                    <kbd>Ctrl+F</kbd>
+                    <span>Focus Search</span>
+                </div>
+                <div class="shortcut-item">
+                    <kbd>Ctrl+E</kbd>
+                    <span>Export Report</span>
+                </div>
+                <div class="shortcut-item">
+                    <kbd>F1</kbd>
+                    <span>Show/Hide Help</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="test-runner-script.js"></script>
+</body>
+</html>

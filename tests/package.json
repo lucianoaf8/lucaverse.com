@@ -1,0 +1,21 @@
+{
+  "name": "lucaverse-test-runner",
+  "version": "1.0.0",
+  "description": "Enhanced test runner with GUI for Lucaverse.com",
+  "type": "module",
+  "scripts": {
+    "test": "node run-all-tests.js",
+    "test:gui": "node run-all-tests-gui.js --gui",
+    "test:unit": "node run-all-tests.js --unit-only",
+    "test:gui-only": "node run-all-tests.js --gui-only",
+    "test:oauth": "node run-all-tests.js --oauth-only",
+    "install-deps": "npm install ws"
+  },
+  "dependencies": {
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.40.0",
+    "vitest": "^1.0.0"
+  }
+}

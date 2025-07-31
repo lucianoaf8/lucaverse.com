@@ -19,7 +19,20 @@
     "security:check": "npm audit --audit-level moderate",
     "security:critical": "npm audit --audit-level high",
     "precommit": "npm run security:check && npm run build",
-    "deploy:monitor": "node scripts/deploy-workflow-mcp.js"
+    "deploy:monitor": "node scripts/deploy-workflow-mcp.js",
+    "test": "node tests/run-all-tests.js",
+    "test:unit": "vitest run",
+    "test:unit:watch": "vitest",
+    "test:unit:ui": "vitest --ui",
+    "test:gui": "playwright test --config=./tests/playwright.config.js",
+    "test:gui:headed": "playwright test --config=./tests/playwright.config.js --headed",
+    "test:gui:debug": "playwright test --config=./tests/playwright.config.js --debug",
+    "test:integration": "playwright test ./tests/integration-tests --config=./tests/playwright.config.js",
+    "test:mobile": "playwright test --config=./tests/playwright.config.js --project='Mobile Chrome' --project='Mobile Safari'",
+    "test:firefox": "playwright test --config=./tests/playwright.config.js --project=firefox",
+    "test:webkit": "playwright test --config=./tests/playwright.config.js --project=webkit",
+    "test:report": "playwright show-report tests/test-results/playwright-report",
+    "test:install": "playwright install"
   },
   "dependencies": {
     "dompurify": "^3.2.6",
@@ -32,8 +45,14 @@
     "react-icons": "^5.5.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.54.1",
+    "@testing-library/jest-dom": "^6.6.4",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
     "@vitejs/plugin-react": "^4.3.3",
+    "jsdom": "^26.1.0",
     "kill-port": "^2.0.1",
-    "vite": "^5.4.10"
+    "vite": "^5.4.10",
+    "vitest": "^3.2.4"
   }
 }

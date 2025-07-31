@@ -247,6 +247,7 @@ export const createOAuthSecurityParams = async () => {
     sessionId,
     state,
     csrfToken,
+    codeVerifier, // CRITICAL FIX: Include codeVerifier for worker transmission
     codeChallenge,
     codeChallengeMethod: 'S256'
   };
