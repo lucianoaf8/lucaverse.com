@@ -77,63 +77,110 @@ const LucaverseLogin = () => {
 
       // Listen for messages from the popup
       const messageHandler = (event) => {
+        console.log('🎯 Frontend: Message received from popup', {
+          origin: event.origin,
+          source: event.source === popup ? 'popup' : 'other',
+          data: event.data,
+          timestamp: new Date().toISOString()
+        });
+
         // Enhanced security validation - check against worker origin instead of current origin
         const expectedWorkerOrigin = 'https://lucaverse-auth.lucianoaf8.workers.dev';
+        
+        console.log('🔍 Frontend: Validating message source', {
+          receivedOrigin: event.origin,
+          expectedOrigin: expectedWorkerOrigin,
+          sourceMatches: event.source === popup,
+          popupClosed: popup?.closed
+        });
+
         if (!validateMessageSource(event, popup, expectedWorkerOrigin)) {
           logger.security('Invalid message source', { origin: event.origin, expected: expectedWorkerOrigin });
+          console.log('❌ Frontend: Message source validation failed');
           return;
         }
+
+        console.log('✅ Frontend: Message source validation passed');
 
         // Validate message structure
         if (!event.data || typeof event.data !== 'object') {
           logger.security('Invalid message data', { data: event.data });
+          console.log('❌ Frontend: Invalid message data structure');
           return;
         }
+
+        console.log('✅ Frontend: Message data structure valid');
 
         // Validate message timestamp (prevent replay attacks)
         const messageAge = Date.now() - (event.data.timestamp || 0);
         if (messageAge > 30000) { // 30 seconds max
           logger.security('Message too old', { age: messageAge });
+          console.log('❌ Frontend: Message too old', { age: messageAge });
           return;
         }
 
+        console.log('✅ Frontend: Message timestamp valid', { age: messageAge });
+
         if (event.data.type === 'OAUTH_SUCCESS') {
+          console.log('🎉 Frontend: OAuth success message received!', {
+            messageData: event.data,
+            popupClosed: popup?.closed,
+            debugInfo: event.data.debug
+          });
+          
           logger.debug('OAuth success message received');
           
           // Authentication successful - tokens will be set as httpOnly cookies by the server
           // No client-side token storage for security
+          
+          console.log('🧹 Frontend: Starting cleanup process');
           
           // Clean up immediately
           clearInterval(popupCheckInterval);
           clearTimeout(timeoutId);
           window.removeEventListener('message', messageHandler);
           
+          console.log('✅ Frontend: Event listeners and intervals cleared');
+          
           // Close the popup first
           if (popup && !popup.closed) {
             try {
+              console.log('🚪 Frontend: Attempting to close popup');
               popup.close();
+              console.log('✅ Frontend: Popup close command sent');
             } catch (error) {
+              console.log('⚠️ Frontend: Popup already closed or could not be closed:', error.message);
               logger.debug('Popup already closed or could not be closed');
             }
+          } else {
+            console.log('ℹ️ Frontend: Popup already closed or not available');
           }
           
           // Clear OAuth storage
           oauthStorage.clear();
+          console.log('✅ Frontend: OAuth storage cleared');
           
           // Wait a moment for popup to fully close, then redirect
           setTimeout(() => {
+            console.log('🏠 Frontend: Redirecting to dashboard');
             setIsLoading(false);
             logger.debug('Redirecting to dashboard');
             window.location.hash = 'dashboard';
           }, 300);
           
         } else if (event.data.type === 'OAUTH_ERROR') {
-          // Handle authentication error
           const errorMsg = event.data.error || 'Authentication failed';
+          console.log('❌ Frontend: OAuth error received', {
+            error: errorMsg,
+            messageData: event.data,
+            popupClosed: popup?.closed
+          });
+          
           logger.error('OAuth error:', errorMsg);
           
           // Close the popup first
           if (popup && !popup.closed) {
+            console.log('🚪 Frontend: Closing popup after error');
             popup.close();
           }
           
@@ -143,6 +190,8 @@ const LucaverseLogin = () => {
           
           // Clear OAuth storage
           oauthStorage.clear();
+          
+          console.log('🧹 Frontend: Cleanup completed after error');
           
           // Wait a moment for popup to fully close, then show error
           setTimeout(() => {
@@ -155,10 +204,15 @@ const LucaverseLogin = () => {
               ? 'Popup was blocked. Please allow popups and try again.'
               : 'Authentication failed. Please try again.';
               
+            console.log('🚨 Frontend: Showing error to user:', userError);
             alert(userError);
             logger.debug('OAuth error handled:', { error: errorMsg, userError });
           }, 300);
         } else {
+          console.log('❓ Frontend: Unknown message type received', {
+            type: event.data.type,
+            data: event.data
+          });
           logger.debug('Unknown message type received:', event.data.type);
         }
       };

@@ -19,6 +19,9 @@ export default {
       'Access-Control-Allow-Headers': 'Content-Type, Authorization',
       'Access-Control-Allow-Credentials': 'true', // Important for cookies
       'Access-Control-Max-Age': '86400',
+      // CRITICAL: Ensure popups can communicate back to parent window
+      'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
+      'Cross-Origin-Embedder-Policy': 'unsafe-none'
     };
 
     if (request.method === 'OPTIONS') {
@@ -297,6 +300,13 @@ async function handleGoogleCallback(request, env) {
       expirationTtl: 7 * 24 * 60 * 60, // 7 days in seconds
     });
 
+    console.log('🎉 OAuth Success! User authenticated:', {
+      email: userInfo.email,
+      name: userInfo.name,
+      sessionId,
+      frontendUrl: env.FRONTEND_URL
+    });
+
     // Send success message to opener window with secure cookies
     const html = `
       <!DOCTYPE html>
@@ -343,6 +353,15 @@ async function handleGoogleCallback(request, env) {
               color: rgba(255, 255, 255, 0.7);
               font-size: 14px;
             }
+            .debug-info {
+              color: rgba(255, 255, 255, 0.5);
+              font-size: 12px;
+              margin-top: 20px;
+              padding: 10px;
+              background: rgba(0, 0, 0, 0.3);
+              border-radius: 5px;
+              font-family: monospace;
+            }
           </style>
         </head>
         <body>
@@ -350,98 +369,172 @@ async function handleGoogleCallback(request, env) {
             <div class="spinner"></div>
             <div class="success-message">Authentication successful!</div>
             <div class="close-message">This window should close automatically...</div>
+            <div class="debug-info" id="debug-info">
+              Initializing OAuth callback...
+            </div>
           </div>
           
           <script>
             (function() {
               'use strict';
               
-              console.log('OAuth success callback executing');
+              const debugInfo = document.getElementById('debug-info');
+              
+              function addDebugLog(message) {
+                console.log(message);
+                debugInfo.innerHTML += '<br>' + new Date().toISOString().slice(11, 23) + ' - ' + message;
+                debugInfo.scrollTop = debugInfo.scrollHeight;
+              }
+              
+              addDebugLog('🚀 OAuth callback script started');
+              addDebugLog('🌐 Current URL: ' + window.location.href);
+              addDebugLog('🔗 Window opener exists: ' + !!window.opener);
+              addDebugLog('🔗 Window parent exists: ' + !!window.parent);
+              addDebugLog('🎯 Frontend URL: ${env.FRONTEND_URL}');
+              addDebugLog('🏠 Current origin: ' + window.location.origin);
               
               // Function to attempt sending message and closing window
               function attemptClose() {
                 try {
-                  // Always attempt to send the message, even if opener seems null
+                  addDebugLog('📤 Preparing to send success message');
+                  
                   const message = {
                     type: 'OAUTH_SUCCESS',
-                    timestamp: Date.now()
+                    timestamp: Date.now(),
+                    debug: {
+                      workerOrigin: window.location.origin,
+                      frontendUrl: '${env.FRONTEND_URL}',
+                      timestamp: new Date().toISOString()
+                    }
                   };
                   
-                  if (window.opener) {
-                    console.log('Sending success message to opener');
-                    // Try multiple origins to ensure message delivery
+                  addDebugLog('📦 Message payload: ' + JSON.stringify(message, null, 2));
+                  
+                  let messageSent = false;
+                  
+                  if (window.opener && !window.opener.closed) {
+                    addDebugLog('📨 Attempting to send message to opener');
+                    
+                    // First try: Send to specific frontend URL
                     try {
                       window.opener.postMessage(message, '${env.FRONTEND_URL}');
+                      addDebugLog('✅ Message sent to ${env.FRONTEND_URL}');
+                      messageSent = true;
                     } catch (e) {
-                      console.warn('Failed to send to FRONTEND_URL, trying wildcard:', e);
-                      window.opener.postMessage(message, '*');
+                      addDebugLog('❌ Failed to send to ${env.FRONTEND_URL}: ' + e.message);
+                      
+                      // Second try: wildcard origin
+                      try {
+                        window.opener.postMessage(message, '*');
+                        addDebugLog('✅ Message sent with wildcard origin');
+                        messageSent = true;
+                      } catch (e2) {
+                        addDebugLog('❌ Failed wildcard send: ' + e2.message);
+                      }
                     }
                   } else {
-                    console.log('No window.opener detected, but still attempting postMessage');
-                    // Sometimes window.opener is null but parent can still receive messages
+                    addDebugLog('⚠️ No window.opener or opener is closed');
+                    
+                    // Try parent window as fallback
                     if (window.parent && window.parent !== window) {
+                      addDebugLog('📨 Attempting to send message to parent');
                       try {
                         window.parent.postMessage(message, '${env.FRONTEND_URL}');
+                        addDebugLog('✅ Message sent to parent');
+                        messageSent = true;
                       } catch (e) {
-                        console.warn('Failed to send to parent, trying wildcard:', e);
-                        window.parent.postMessage(message, '*');
+                        addDebugLog('❌ Failed to send to parent: ' + e.message);
+                        try {
+                          window.parent.postMessage(message, '*');
+                          addDebugLog('✅ Message sent to parent with wildcard');
+                          messageSent = true;
+                        } catch (e2) {
+                          addDebugLog('❌ Failed parent wildcard: ' + e2.message);
+                        }
                       }
                     }
                   }
                   
-                  // Multiple attempts to close the window with better timing
+                  if (!messageSent) {
+                    addDebugLog('🚨 No message could be sent!');
+                  }
+                  
+                  // Close window attempts
+                  addDebugLog('🚪 Starting window close attempts');
+                  
+                  // Immediate close attempt
                   setTimeout(() => {
-                    console.log('Attempting to close window');
+                    addDebugLog('🚪 Attempt 1: Immediate close');
                     try {
                       window.close();
+                      if (window.closed) {
+                        addDebugLog('✅ Window closed successfully');
+                      } else {
+                        addDebugLog('⚠️ Window.close() called but window still open');
+                      }
                     } catch (e) {
-                      console.warn('Window close failed:', e);
+                      addDebugLog('❌ Window close failed: ' + e.message);
                     }
                   }, 100);
                   
-                  // Fallback close attempt
+                  // Second attempt after 500ms
                   setTimeout(() => {
                     if (!window.closed) {
-                      console.log('Window still open, attempting force close');
+                      addDebugLog('🚪 Attempt 2: Force close after delay');
                       try {
                         window.close();
                       } catch (e) {
-                        console.warn('Force close failed:', e);
+                        addDebugLog('❌ Force close failed: ' + e.message);
                       }
                     }
                   }, 500);
                   
-                  // Alternative approach - navigate away to ensure close
+                  // Third attempt - navigation
                   setTimeout(() => {
                     if (!window.closed) {
-                      console.log('Attempting navigation approach');
-                      window.location = 'about:blank';
+                      addDebugLog('🚪 Attempt 3: Navigation to about:blank');
+                      try {
+                        window.location.href = 'about:blank';
+                      } catch (e) {
+                        addDebugLog('❌ Navigation failed: ' + e.message);
+                      }
                     }
                   }, 1500);
                   
-                  // Final fallback - show user message
+                  // Final fallback - show manual close message
                   setTimeout(() => {
                     if (!window.closed) {
-                      console.log('Window could not be closed automatically');
+                      addDebugLog('🚨 All close attempts failed - showing manual close message');
                       document.querySelector('.close-message').innerHTML = 
-                        'Please close this window manually to complete the authentication.';
+                        'Please close this window manually to complete authentication.';
                     }
                   }, 3000);
                   
                 } catch (error) {
-                  console.error('Error in OAuth callback:', error);
+                  addDebugLog('💥 Critical error in attemptClose: ' + error.message);
+                  console.error('OAuth callback error:', error);
                   document.querySelector('.close-message').innerHTML = 
-                    'Please close this window manually to complete the authentication.';
+                    'Error occurred. Please close this window manually.';
                 }
               }
               
-              // Start the close attempt immediately
-              attemptClose();
+              addDebugLog('⏰ Starting OAuth callback in 100ms');
               
-              // Also try after DOM is fully loaded
+              // Start the close attempt after a brief delay
+              setTimeout(attemptClose, 100);
+              
+              // Also try after DOM is fully loaded as backup
               if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', attemptClose);
+                document.addEventListener('DOMContentLoaded', () => {
+                  addDebugLog('📄 DOM loaded - running backup attempt');
+                  setTimeout(attemptClose, 50);
+                });
               }
+              
+              // Listen for beforeunload to log when window is actually closing
+              window.addEventListener('beforeunload', () => {
+                addDebugLog('👋 Window is closing...');
+              });
               
             })();
           </script>
@@ -456,7 +549,13 @@ async function handleGoogleCallback(request, env) {
         'Set-Cookie': [
           createSecureCookie('auth_token', sessionToken, 86400), // 24 hours
           createSecureCookie('session_id', sessionId, 86400 * 7) // 7 days
-        ].join(', ')
+        ].join(', '),
+        // CRITICAL: Allow cross-origin communication for OAuth popup
+        'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
+        'Cross-Origin-Embedder-Policy': 'unsafe-none',
+        // Additional headers to ensure popup can communicate back
+        'X-Frame-Options': 'SAMEORIGIN',
+        'Cache-Control': 'no-cache, no-store, must-revalidate'
       }
     });
     
