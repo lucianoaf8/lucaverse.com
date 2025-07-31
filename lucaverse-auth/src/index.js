@@ -145,7 +145,7 @@ async function handleGoogleAuth(request, env) {
       throw new Error('GOOGLE_CLIENT_ID environment variable is missing');
     }
     
-    // Store OAuth security parameters
+    // Store OAuth security parameters using STATE as key (since Google only returns state in callback)
     const oauthParams = {
       state,
       codeChallenge,
@@ -154,7 +154,8 @@ async function handleGoogleAuth(request, env) {
       timestamp: Date.now()
     };
     
-    await env.OAUTH_SESSIONS.put(`oauth_${sessionId}`, JSON.stringify(oauthParams), {
+    console.log('🔐 Storing OAuth session with state key:', { state: state.substring(0, 10) + '...', sessionId });
+    await env.OAUTH_SESSIONS.put(`oauth_state_${state}`, JSON.stringify(oauthParams), {
       expirationTtl: 300 // 5 minutes
     });
     
@@ -201,15 +202,14 @@ async function handleGoogleCallback(request, env) {
     return Response.redirect(`${env.FRONTEND_URL}/oauth-callback.html?error=missing_params`, 302);
   }
   
-  // Extract session ID from state (first part before the dot)
-  const sessionId = state.split('.')[1]; // state format: timestamp.sessionId
-  if (!sessionId) {
-    console.error('🚨 OAuth Security: Invalid state format');
-    return Response.redirect(`${env.FRONTEND_URL}/oauth-callback.html?error=invalid_state`, 302);
-  }
+  console.log('🔍 OAuth callback received:', { 
+    code: code ? 'present' : 'missing',
+    state: state ? state.substring(0, 10) + '...' : 'missing'
+  });
   
-  // Retrieve and validate stored OAuth parameters
-  const storedParamsData = await env.OAUTH_SESSIONS.get(`oauth_${sessionId}`);
+  // Retrieve stored OAuth parameters using STATE as key
+  console.log('🔎 Looking up OAuth session with state key...');
+  const storedParamsData = await env.OAUTH_SESSIONS.get(`oauth_state_${state}`);
   if (!storedParamsData) {
     console.error('🚨 OAuth Security: OAuth session not found or expired');
     return Response.redirect(`${env.FRONTEND_URL}/oauth-callback.html?error=session_expired`, 302);
@@ -217,26 +217,33 @@ async function handleGoogleCallback(request, env) {
   
   const storedParams = JSON.parse(storedParamsData);
   
+  console.log('✅ OAuth session found and loaded');
+
   // Validate state parameter
   if (storedParams.state !== state) {
     console.error('🚨 OAuth Security: State parameter mismatch');
-    await env.OAUTH_SESSIONS.delete(`oauth_${sessionId}`);
+    await env.OAUTH_SESSIONS.delete(`oauth_state_${state}`);
     return Response.redirect(`${env.FRONTEND_URL}/oauth-callback.html?error=state_mismatch`, 302);
   }
+  
+  console.log('✅ State parameter validation passed');
   
   // Validate timestamp (5 minute window)
   const now = Date.now();
   if (now - storedParams.timestamp > 300000) {
     console.error('🚨 OAuth Security: OAuth session expired');
-    await env.OAUTH_SESSIONS.delete(`oauth_${sessionId}`);
+    await env.OAUTH_SESSIONS.delete(`oauth_state_${state}`);
     return Response.redirect(`${env.FRONTEND_URL}/oauth-callback.html?error=session_expired`, 302);
   }
+  
+  console.log('✅ Timestamp validation passed');
   
   console.log('✅ OAuth Security: State validation passed');
 
   try {
     // Clean up OAuth session now that we've validated it
-    await env.OAUTH_SESSIONS.delete(`oauth_${sessionId}`);
+    console.log('🧹 Cleaning up OAuth session after validation');
+    await env.OAUTH_SESSIONS.delete(`oauth_state_${state}`);
     
     // Exchange code for tokens using PKCE
     const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
