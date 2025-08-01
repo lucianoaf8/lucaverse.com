@@ -2,7 +2,7 @@
 
 /**
  * 🧪 Enhanced Test Suite Runner with GUI for Lucaverse.com
- * Features: Real-time GUI, WebSocket communication, comprehensive reporting
+ * Features: Real-time GUI, WebSocket communication, comprehensive reporting, Chromium integration
  */
 
 import { execSync, spawn } from 'child_process';
@@ -12,6 +12,7 @@ import { fileURLToPath } from 'url';
 import { createServer } from 'http';
 import { WebSocketServer } from 'ws';
 import { parse } from 'url';
+import { chromiumManager } from './chromium-manager.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -59,6 +60,7 @@ class EnhancedTestRunner {
     this.httpServer = null;
     this.devProcess = null;
     this.reportDir = path.join(__dirname, 'test-reports');
+    this.chromiumManager = chromiumManager; // Add Chromium manager reference
     
     // Ensure reports directory exists
     if (!fs.existsSync(this.reportDir)) {
@@ -196,6 +198,31 @@ class EnhancedTestRunner {
       level: 'info'
     });
 
+    // Create Chromium tab for test execution if Chromium is available
+    let testTabId = null;
+    const chromiumRunning = await this.chromiumManager.isChromiumRunning();
+    if (chromiumRunning) {
+      try {
+        // Create a dedicated tab for this test suite
+        const testUrl = 'http://localhost:5155'; // Base URL for tests
+        testTabId = await this.chromiumManager.createTestTab(testUrl, suiteName);
+        if (testTabId) {
+          this.broadcastToClients({
+            type: 'log',
+            message: `🟦 Created Chromium tab for ${suiteName} (Tab ID: ${testTabId})`,
+            level: 'info'
+          });
+        }
+      } catch (error) {
+        console.error('⚠️ Failed to create Chromium tab:', error.message);
+        this.broadcastToClients({
+          type: 'log',
+          message: `Warning: Could not create Chromium tab for ${suiteName}`,
+          level: 'warning'
+        });
+      }
+    }
+
     const startTime = Date.now();
     
     try {
@@ -269,6 +296,20 @@ class EnhancedTestRunner {
         message: `${config.description} failed: ${error.message}`,
         level: 'error'
       });
+    } finally {
+      // Clean up Chromium test tab if it was created
+      if (testTabId && chromiumRunning) {
+        try {
+          await this.chromiumManager.closeTestTab(suiteName);
+          this.broadcastToClients({
+            type: 'log',
+            message: `🟦 Closed Chromium tab for ${suiteName}`,
+            level: 'info'
+          });
+        } catch (error) {
+          console.error('⚠️ Failed to close Chromium tab:', error.message);
+        }
+      }
     }
   }
 
@@ -318,6 +359,13 @@ class EnhancedTestRunner {
       console.log('🛑 Stopping development server...');
       this.devProcess.kill();
       this.devProcess = null;
+    }
+    
+    // Clean up Chromium test tabs (but keep GUI tab open)
+    if (this.chromiumManager) {
+      this.chromiumManager.cleanup().catch(error => {
+        console.error('⚠️ Chromium cleanup error:', error.message);
+      });
     }
   }
 
@@ -423,9 +471,21 @@ class EnhancedTestRunner {
     const args = process.argv.slice(2);
     
     if (args.includes('--gui')) {
-      console.log('🖥️  Starting GUI mode...');
+      console.log('🖥️  Starting GUI mode with Chromium integration...');
       await this.startWebServer();
-      console.log('✨ GUI is ready! Open http://localhost:8090 in your browser');
+      console.log('✨ GUI server is ready at http://localhost:8090');
+      
+      // Check if Chromium is running (GUI should already be open from launch)
+      const chromiumStatus = await this.chromiumManager.isChromiumRunning();
+      if (chromiumStatus) {
+        console.log('🟦 Chromium detected - confirming GUI is accessible...');
+        await this.chromiumManager.openGUIInChromium(); // This will find existing or confirm access
+        console.log('✅ GUI is accessible in Chromium!');
+      } else {
+        console.log('⚠️  Chromium not detected. Please open http://localhost:8090 manually');
+        console.log('💡 The GUI should have opened automatically if Chromium launched successfully');
+      }
+      
       console.log('📝 Press Ctrl+C to stop the server');
       
       // Keep the server running

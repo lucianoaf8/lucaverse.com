@@ -28,12 +28,26 @@ class TestStudio {
         this.currentTab = 'execution';
         this.filteredResults = [];
         
+        // Chromium integration properties
+        this.chromiumStatus = {
+            isRunning: false,
+            guiTabId: null,
+            testTabsCount: 0,
+            debugPort: 9223
+        };
+        this.chromiumMetrics = {
+            tabsCreated: 0,
+            tabsClosed: 0,
+            connectionAttempts: 0
+        };
+        
         this.initializeElements();
         this.bindEventListeners();
         this.initializeWebSocket();
         this.loadTestProfiles();
         this.initializeKeyboardShortcuts();
-        this.logMessage('Test studio initialized', 'info');
+        this.initializeChromiumIntegration(); // Add Chromium integration
+        this.logMessage('Test studio initialized with Chromium integration', 'info');
     }
 
     initializeElements() {
@@ -257,6 +271,9 @@ class TestStudio {
                 break;
             case 'final-report':
                 this.showFinalReport(data);
+                break;
+            case 'chromium':
+                this.handleChromiumMessage(data);
                 break;
         }
     }
@@ -970,6 +987,230 @@ class TestStudio {
         
         runNextTest();
     }
+
+    /**
+     * Initialize Chromium integration features
+     */
+    initializeChromiumIntegration() {
+        // Check Chromium status on startup
+        this.checkChromiumStatus();
+        
+        // Periodically check Chromium status
+        setInterval(() => {
+            this.checkChromiumStatus();
+        }, 10000); // Check every 10 seconds
+        
+        this.logMessage('🟦 Chromium integration initialized', 'info');
+    }
+
+    /**
+     * Check if Chromium is running with remote debugging
+     */
+    async checkChromiumStatus() {
+        try {
+            const response = await fetch(`http://localhost:${this.chromiumStatus.debugPort}/json/version`);
+            if (response.ok) {
+                const chromiumInfo = await response.json();
+                this.chromiumStatus.isRunning = true;
+                this.updateChromiumStatusUI(true, chromiumInfo);
+                
+                // Get tab information
+                const tabsResponse = await fetch(`http://localhost:${this.chromiumStatus.debugPort}/json`);
+                if (tabsResponse.ok) {
+                    const tabs = await tabsResponse.json();
+                    this.chromiumStatus.testTabsCount = tabs.length;
+                    
+                    // Find GUI tab
+                    const guiTab = tabs.find(tab => tab.url && tab.url.includes('localhost:8090'));
+                    if (guiTab) {
+                        this.chromiumStatus.guiTabId = guiTab.id;
+                    }
+                }
+            } else {
+                this.chromiumStatus.isRunning = false;
+                this.updateChromiumStatusUI(false);
+            }
+        } catch (error) {
+            this.chromiumStatus.isRunning = false;
+            this.updateChromiumStatusUI(false);
+            this.chromiumMetrics.connectionAttempts++;
+        }
+    }
+
+    /**
+     * Update Chromium status in the UI
+     */
+    updateChromiumStatusUI(isRunning, chromiumInfo = null) {
+        // Find or create Chromium status indicator
+        let chromiumIndicator = document.getElementById('chromium-status');
+        if (!chromiumIndicator) {
+            chromiumIndicator = this.createChromiumStatusIndicator();
+        }
+
+        if (isRunning) {
+            chromiumIndicator.className = 'chromium-status connected';
+            chromiumIndicator.innerHTML = `
+                <div class="chromium-icon">🟦</div>
+                <div class="chromium-details">
+                    <div class="chromium-label">Chromium Connected</div>
+                    <div class="chromium-version">${chromiumInfo?.Browser || 'Unknown Version'}</div>
+                    <div class="chromium-tabs">${this.chromiumStatus.testTabsCount} tabs open</div>
+                    <div class="chromium-profile">Profile 7 (Windsurf)</div>
+                </div>
+            `;
+            chromiumIndicator.title = `Chromium running on port ${this.chromiumStatus.debugPort}`;
+        } else {
+            chromiumIndicator.className = 'chromium-status disconnected';
+            chromiumIndicator.innerHTML = `
+                <div class="chromium-icon">🟦</div>
+                <div class="chromium-details">
+                    <div class="chromium-label">Chromium Disconnected</div>
+                    <div class="chromium-message">Launch via studio for integration</div>
+                </div>
+            `;
+            chromiumIndicator.title = 'Chromium not detected or remote debugging disabled';
+        }
+    }
+
+    /**
+     * Create Chromium status indicator in the sidebar
+     */
+    createChromiumStatusIndicator() {
+        const sidebar = document.querySelector('.studio-sidebar');
+        const chromiumSection = document.createElement('section');
+        chromiumSection.className = 'sidebar-section chromium-section';
+        chromiumSection.innerHTML = `
+            <h3>🟦 Chromium Integration</h3>
+            <div id="chromium-status" class="chromium-status">
+                <!-- Status will be populated by updateChromiumStatusUI -->
+            </div>
+            <div class="chromium-actions">
+                <button class="btn btn-tertiary btn-small" onclick="testStudio.requestChromiumLaunch()">
+                    Launch Chromium
+                </button>
+                <button class="btn btn-tertiary btn-small" onclick="testStudio.showChromiumDiagnostics()">
+                    Diagnostics
+                </button>
+            </div>
+        `;
+        
+        // Insert after performance metrics section
+        const metricsSection = sidebar.querySelector('.metrics-section');
+        if (metricsSection) {
+            metricsSection.insertAdjacentElement('afterend', chromiumSection);
+        } else {
+            sidebar.appendChild(chromiumSection);
+        }
+        
+        return document.getElementById('chromium-status');
+    }
+
+    /**
+     * Request Chromium launch from server
+     */
+    requestChromiumLaunch() {
+        if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+            this.socket.send(JSON.stringify({
+                type: 'launch-chromium'
+            }));
+            this.logMessage('🟦 Requesting Chromium launch...', 'info');
+        } else {
+            this.logMessage('❌ Cannot request Chromium launch: No server connection', 'error');
+        }
+    }
+
+    /**
+     * Show Chromium diagnostics modal
+     */
+    showChromiumDiagnostics() {
+        const diagnosticsHTML = `
+            <div class="modal-backdrop" onclick="this.remove()">
+                <div class="modal chromium-diagnostics-modal" onclick="event.stopPropagation()">
+                    <div class="modal-header">
+                        <h3>🟦 Chromium Integration Diagnostics</h3>
+                        <button class="modal-close" onclick="this.closest('.modal-backdrop').remove()">✕</button>
+                    </div>
+                    <div class="modal-content">
+                        <div class="diagnostics-grid">
+                            <div class="diagnostic-item">
+                                <label>Connection Status:</label>
+                                <span class="${this.chromiumStatus.isRunning ? 'status-connected' : 'status-disconnected'}">
+                                    ${this.chromiumStatus.isRunning ? '✅ Connected' : '❌ Disconnected'}
+                                </span>
+                            </div>
+                            <div class="diagnostic-item">
+                                <label>Debug Port:</label>
+                                <span>${this.chromiumStatus.debugPort}</span>
+                            </div>
+                            <div class="diagnostic-item">
+                                <label>Profile:</label>
+                                <span>Profile 7 (Windsurf)</span>
+                            </div>
+                            <div class="diagnostic-item">
+                                <label>GUI Tab ID:</label>
+                                <span>${this.chromiumStatus.guiTabId || 'Not found'}</span>
+                            </div>
+                            <div class="diagnostic-item">
+                                <label>Test Tabs:</label>
+                                <span>${this.chromiumStatus.testTabsCount}</span>
+                            </div>
+                            <div class="diagnostic-item">
+                                <label>Tabs Created:</label>
+                                <span>${this.chromiumMetrics.tabsCreated}</span>
+                            </div>
+                            <div class="diagnostic-item">
+                                <label>Tabs Closed:</label>
+                                <span>${this.chromiumMetrics.tabsClosed}</span>
+                            </div>
+                            <div class="diagnostic-item">
+                                <label>Connection Attempts:</label>
+                                <span>${this.chromiumMetrics.connectionAttempts}</span>
+                            </div>
+                        </div>
+                        <div class="diagnostics-actions">
+                            <button class="btn btn-primary" onclick="testStudio.checkChromiumStatus()">
+                                Refresh Status
+                            </button>
+                            <button class="btn btn-secondary" onclick="testStudio.requestChromiumLaunch()">
+                                Launch Chromium
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.insertAdjacentHTML('beforeend', diagnosticsHTML);
+        this.logMessage('🟦 Chromium diagnostics opened', 'info');
+    }
+
+    /**
+     * Handle Chromium-related server messages
+     */
+    handleChromiumMessage(data) {
+        switch (data.subtype) {
+            case 'tab-created':
+                this.chromiumMetrics.tabsCreated++;
+                this.logMessage(`🟦 Chromium tab created for ${data.testId}`, 'info');
+                break;
+            case 'tab-closed':
+                this.chromiumMetrics.tabsClosed++;
+                this.logMessage(`🟦 Chromium tab closed for ${data.testId}`, 'info');
+                break;
+            case 'launch-success':
+                this.logMessage('🟦 Chromium launched successfully', 'success');
+                this.checkChromiumStatus(); // Refresh status
+                break;
+            case 'launch-failed':
+                this.logMessage(`❌ Chromium launch failed: ${data.error}`, 'error');
+                break;
+            case 'status-update':
+                this.chromiumStatus = { ...this.chromiumStatus, ...data.status };
+                this.updateChromiumStatusUI(this.chromiumStatus.isRunning);
+                break;
+        }
+    }
+}
 }
 
 // Initialize the Test Studio when the page loads

@@ -32,11 +32,24 @@ export default defineConfig({
     video: 'retain-on-failure'
   },
 
-  /* Configure projects for major browsers */
+  /* Configure projects for major browsers - Chromium prioritized for Test Studio */
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: { 
+        ...devices['Desktop Chrome'],
+        // Connect to existing Chromium instance if available
+        // This will be overridden by the chromium-manager when in GUI mode
+        launchOptions: {
+          // Will be configured by chromium-manager in GUI mode
+          executablePath: process.env.CHROMIUM_PATH || 
+            'C:\\Users\\lucia\\.codeium\\windsurf\\ws-browser\\chromium-1155\\chrome-win\\chrome.exe',
+          args: process.env.CHROMIUM_DEBUG_PORT ? 
+            [`--remote-debugging-port=${process.env.CHROMIUM_DEBUG_PORT}`, '--profile-directory=Profile 7'] : 
+            ['--profile-directory=Profile 7'],
+          headless: false, // Always run in headed mode for better debugging
+        }
+      },
     },
     {
       name: 'firefox',

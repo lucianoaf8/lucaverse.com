@@ -13,3 +13,6 @@ id = "bcde6e59edd2415fa257834e2daf5e7d"
 [vars]
 WORKER_URL = "https://lucaverse-auth.lucianoaf8.workers.dev"
 FRONTEND_URL = "https://lucaverse.com"
+
+[observability.logs]
+enabled = true

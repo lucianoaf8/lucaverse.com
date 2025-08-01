@@ -1,7 +1,7 @@
 {
   "name": "lucaverse-test-runner",
   "version": "1.0.0",
-  "description": "Enhanced test runner with GUI for Lucaverse.com",
+  "description": "Enhanced test runner with GUI and Chromium integration for Lucaverse.com",
   "type": "module",
   "scripts": {
     "test": "node run-all-tests.js",
@@ -9,6 +9,7 @@
     "test:unit": "node run-all-tests.js --unit-only",
     "test:gui-only": "node run-all-tests.js --gui-only",
     "test:oauth": "node run-all-tests.js --oauth-only",
+    "launch": "node launch-gui.js",
     "install-deps": "npm install ws"
   },
   "dependencies": {

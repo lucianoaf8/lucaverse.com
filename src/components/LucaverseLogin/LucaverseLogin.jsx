@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import TronGrid from '../Background/TronGrid.tsx';
 import { createOAuthSecurityParams, validateMessageSource, oauthStorage } from '../../utils/oauth-security.js';
 import { logger } from '../../utils/logger.js';
+import { logOAuth, oauthLogger } from '../../utils/oauth-logger.js';
 import styles from './LucaverseLogin.module.css';
 
 const LucaverseLogin = () => {
@@ -24,10 +25,12 @@ const LucaverseLogin = () => {
 
   const handleGoogleLogin = async () => {
     setIsLoading(true);
+    logOAuth.info('Frontend', 'Starting Google OAuth flow');
     
     try {
       // Generate secure OAuth parameters
       const securityParams = await createOAuthSecurityParams();
+      logOAuth.debug('Frontend', 'OAuth security params generated', securityParams);
       console.log('OAuth security params:', securityParams);
       
       // OAuth popup window specs
@@ -81,6 +84,13 @@ const LucaverseLogin = () => {
 
       // Listen for messages from the popup
       const messageHandler = (event) => {
+        logOAuth.info('Frontend', 'Message received from popup', {
+          origin: event.origin,
+          source: event.source === popup ? 'popup' : 'other',
+          data: event.data,
+          timestamp: new Date().toISOString()
+        });
+        
         console.log('🎯 Frontend: Message received from popup', {
           origin: event.origin,
           source: event.source === popup ? 'popup' : 'other',
@@ -101,9 +111,20 @@ const LucaverseLogin = () => {
 
         // Allow messages from worker origin or parent origin for flexibility
         const validOrigins = [expectedWorkerOrigin, window.location.origin];
+        
+        console.log('🔍 Frontend: Origin validation check', {
+          receivedOrigin: event.origin,
+          validOrigins: validOrigins,
+          isValid: validOrigins.includes(event.origin)
+        });
+        
         if (!validOrigins.includes(event.origin)) {
           logger.security('Invalid message origin', { origin: event.origin, expected: validOrigins });
-          console.log('❌ Frontend: Message origin validation failed');
+          console.log('❌ Frontend: Message origin validation failed - origin not in whitelist');
+          logOAuth.error('Frontend', 'Message origin validation failed', {
+            receivedOrigin: event.origin,
+            expectedOrigins: validOrigins
+          });
           return;
         }
 
@@ -155,6 +176,12 @@ const LucaverseLogin = () => {
         console.log('✅ Frontend: Message timestamp valid', { age: messageAge });
 
         if (event.data.type === 'OAUTH_SUCCESS') {
+          logOAuth.success('Frontend', 'OAuth success message received!', {
+            messageData: event.data,
+            popupClosed: popup?.closed,
+            debugInfo: event.data.debug
+          });
+          
           console.log('🎉 Frontend: OAuth success message received!', {
             messageData: event.data,
             popupClosed: popup?.closed,

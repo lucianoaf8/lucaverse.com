@@ -74,6 +74,16 @@ export default {
           response = await handleSetCookies(request, env);
           break;
         
+        case '/debug/save-logs':
+          console.log('💾 Handling debug log save');
+          response = await handleSaveDebugLogs(request, env);
+          break;
+        
+        case '/debug/save-txt-logs':
+          console.log('📝 Handling TXT log save');
+          response = await handleSaveTxtLogs(request, env);
+          break;
+        
         case '/health':
           console.log('💚 Health check');
           response = new Response(JSON.stringify({
@@ -644,7 +654,7 @@ function createOAuthSuccessHTML(env, userInfo, sessionId, sessionToken) {
       (function() {
         'use strict';
         
-        // Configuration
+        // Configuration  
         const CONFIG = {
           frontendUrl: '${env.FRONTEND_URL}',
           workerOrigin: window.location.origin,
@@ -652,6 +662,12 @@ function createOAuthSuccessHTML(env, userInfo, sessionId, sessionToken) {
           retryDelay: 500,
           timeoutMs: 10000
         };
+        
+        // CRITICAL DEBUG: Log configuration
+        addDebugLog(\`🔧 CONFIG.frontendUrl: \${CONFIG.frontendUrl}\`, 'info');
+        addDebugLog(\`🔧 CONFIG.workerOrigin: \${CONFIG.workerOrigin}\`, 'info');
+        addDebugLog(\`🔧 window.opener exists: \${!!window.opener}\`, 'info');
+        addDebugLog(\`🔧 window.opener.closed: \${window.opener ? window.opener.closed : 'N/A'}\`, 'info');
         
         // Debug logging
         const debugInfo = document.getElementById('debug-info');
@@ -717,32 +733,27 @@ function createOAuthSuccessHTML(env, userInfo, sessionId, sessionToken) {
             const targets = this.getTargetWindows();
             addDebugLog(\`Found \${targets.length} potential target windows\`);
             
-            for (let attempt = 1; attempt <= this.maxAttempts; attempt++) {
-              addDebugLog(\`Attempt \${attempt}/\${this.maxAttempts}: Sending messages\`, 'info');
+            // RACE CONDITION FIX: Send message to ONLY the first available target
+            // Multiple targets were causing duplicate message processing in the frontend
+            if (targets.length === 0) {
+              addDebugLog('❌ No target windows available', 'error');
+              return;
+            }
+            
+            // Try targets in order of preference: opener first (most common), then parent, then top
+            for (const target of targets) {
+              addDebugLog(\`🎯 Attempting to send to primary target: \${target.name}\`, 'info');
               
-              let attemptSuccess = false;
-              
-              for (const target of targets) {
-                if (await this.sendToTarget(target)) {
-                  attemptSuccess = true;
-                  this.messageSent = true;
-                }
-              }
-              
-              if (attemptSuccess) {
-                addDebugLog('Message sent successfully!', 'success');
-                break;
-              }
-              
-              if (attempt < this.maxAttempts) {
-                addDebugLog(\`Attempt \${attempt} failed, retrying in \${CONFIG.retryDelay}ms...\`, 'warning');
-                await this.delay(CONFIG.retryDelay);
+              if (await this.sendToTarget(target)) {
+                this.messageSent = true;
+                addDebugLog(\`✅ SUCCESS: Message sent to \${target.name} - stopping here to prevent duplicates\`, 'success');
+                return; // CRITICAL: Stop after first successful send to prevent race condition
+              } else {
+                addDebugLog(\`❌ Failed to send to \${target.name}, trying next target...\`, 'warning');
               }
             }
             
-            if (!this.messageSent) {
-              addDebugLog('All message attempts failed', 'error');
-            }
+            addDebugLog('❌ All message transmissions failed', 'error');
           }
           
           getTargetWindows() {
@@ -776,23 +787,44 @@ function createOAuthSuccessHTML(env, userInfo, sessionId, sessionToken) {
           }
           
           async sendToTarget(target) {
-            let success = false;
+            // CRITICAL FIX: Only try the specific frontend origin first, then fallback to wildcard
+            const messageData = createAuthData(); // Generate fresh timestamp once
             
-            for (const origin of target.origins) {
+            addDebugLog(\`🎯 ATTEMPTING SEND TO TARGET: \${target.name}\`, 'info');
+            addDebugLog(\`   Target window exists: \${!!target.window}\`, 'info');
+            addDebugLog(\`   Target window closed: \${target.window ? target.window.closed : 'N/A'}\`, 'info');
+            addDebugLog(\`   Message data type: \${messageData.type}\`, 'info');
+            addDebugLog(\`   Frontend URL: \${CONFIG.frontendUrl}\`, 'info');
+            
+            try {
+              // Try specific origin first (most secure)
+              addDebugLog(\`📤 Sending to \${target.name} with origin: \${CONFIG.frontendUrl}\`);
+              target.window.postMessage(messageData, CONFIG.frontendUrl);
+              addDebugLog(\`✅ postMessage() call completed for \${target.name} (\${CONFIG.frontendUrl})\`, 'success');
+              
+              // Wait a moment to see if any errors occur
+              await new Promise(resolve => setTimeout(resolve, 100));
+              addDebugLog(\`✅ No immediate errors - message likely sent successfully\`, 'success');
+              return true;
+              
+            } catch (error) {
+              addDebugLog(\`⚠️ Specific origin failed for \${target.name}: \${error.message}\`, 'warning');
+              
               try {
-                const messageData = createAuthData(); // ✅ Generate fresh timestamp
-                addDebugLog(\`Sending to \${target.name} with origin: \${origin}\`);
-                addDebugLog(\`Message timestamp: \${messageData.timestamp} (\${new Date(messageData.timestamp).toISOString()})\`);
-                target.window.postMessage(messageData, origin);
-                success = true;
-                addDebugLog(\`✅ Message sent to \${target.name} (\${origin})\`, 'success');
-                break;
-              } catch (error) {
-                addDebugLog(\`❌ Failed to send to \${target.name} (\${origin}): \${error.message}\`, 'error');
+                // Fallback to wildcard
+                addDebugLog(\`📤 Fallback: Sending to \${target.name} with wildcard origin\`);
+                target.window.postMessage(messageData, '*');
+                addDebugLog(\`✅ Wildcard postMessage() call completed for \${target.name}\`, 'success');
+                
+                await new Promise(resolve => setTimeout(resolve, 100));
+                addDebugLog(\`✅ Wildcard message likely sent successfully\`, 'success');
+                return true;
+                
+              } catch (fallbackError) {
+                addDebugLog(\`❌ All attempts failed for \${target.name}: \${fallbackError.message}\`, 'error');
+                return false;
               }
             }
-            
-            return success;
           }
           
           async closeWindow() {
@@ -1340,6 +1372,98 @@ async function handleSetCookies(request, env) {
   } catch (error) {
     console.error('Set cookies error:', error);
     return new Response('Failed to set cookies', { status: 500 });
+  }
+}
+
+// Handle debug log saving
+async function handleSaveDebugLogs(request, env) {
+  if (request.method !== 'POST') {
+    return new Response('Method not allowed', { status: 405 });
+  }
+
+  try {
+    const logData = await request.json();
+    const timestamp = new Date().toISOString();
+    const logKey = `debug_logs_${logData.sessionId || timestamp}`;
+    
+    // Store logs in KV for later analysis
+    await env.OAUTH_SESSIONS.put(logKey, JSON.stringify({
+      ...logData,
+      savedAt: timestamp,
+      ip: request.headers.get('CF-Connecting-IP'),
+      userAgent: request.headers.get('User-Agent')
+    }), {
+      expirationTtl: 24 * 60 * 60 // Keep logs for 24 hours
+    });
+
+    console.log('💾 Debug logs saved:', {
+      sessionId: logData.sessionId,
+      logCount: logData.totalLogs,
+      duration: logData.duration,
+      key: logKey
+    });
+
+    return new Response(JSON.stringify({ 
+      success: true, 
+      logKey,
+      message: 'Debug logs saved successfully' 
+    }), {
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+  } catch (error) {
+    console.error('💥 Failed to save debug logs:', error);
+    return new Response(JSON.stringify({ 
+      success: false, 
+      error: error.message 
+    }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+}
+
+// Handle TXT debug log saving
+async function handleSaveTxtLogs(request, env) {
+  if (request.method !== 'POST') {
+    return new Response('Method not allowed', { status: 405 });
+  }
+
+  try {
+    const txtContent = await request.text();
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const filename = `oauth-debug-${timestamp}.txt`;
+    
+    console.log('📝 TXT Debug logs received:', {
+      filename: filename,
+      size: txtContent.length,
+      preview: txtContent.substring(0, 200) + '...'
+    });
+    
+    // For now, log the content (could be enhanced to save to R2 storage)
+    console.log('=== TXT LOG CONTENT ===');
+    console.log(txtContent);
+    console.log('=== END LOG CONTENT ===');
+    
+    return new Response(JSON.stringify({ 
+      success: true,
+      message: 'TXT logs received and logged to worker console', 
+      filename: filename,
+      size: txtContent.length 
+    }), { 
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+  } catch (error) {
+    console.error('💥 Failed to save TXT debug logs:', error);
+    return new Response(JSON.stringify({ 
+      success: false, 
+      error: error.message 
+    }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 }
 

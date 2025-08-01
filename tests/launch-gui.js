@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 
 /**
- * 🚀 Lucaverse Test Studio Launcher
- * Installs dependencies and launches the professional test studio
+ * 🚀 Lucaverse Test Studio Launcher - SIMPLE VERSION
+ * Just opens Chromium with Profile 7 and starts the server
  */
 
-import { execSync } from 'child_process';
+import { execSync, spawn } from 'child_process';
 import { existsSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -56,18 +56,102 @@ if (!wsInstalled) {
     console.log('✅ Dependencies already installed\n');
 }
 
-// Launch the Test Studio
-console.log('🖥️  Launching Professional Test Studio...');
-console.log('🌐 Studio Interface: http://localhost:8090');
-console.log('✨ Features: Real-time monitoring, profiles, queue management');
-console.log('⌨️  Shortcuts: F1 for help, Ctrl+R to start tests\n');
-
-try {
-    execSync('node run-all-tests-gui.js --gui', { 
-        stdio: 'inherit', 
-        cwd: __dirname 
-    });
-} catch (error) {
-    console.error('❌ Failed to launch test studio:', error.message);
-    process.exit(1);
+// Check if server is available
+async function waitForServer(maxAttempts = 20) {
+    console.log('⏳ Waiting for Test Studio server to be ready...');
+    
+    for (let i = 0; i < maxAttempts; i++) {
+        try {
+            const response = await fetch('http://localhost:8090');
+            if (response.ok) {
+                console.log('✅ Test Studio server is ready!');
+                return true;
+            }
+        } catch (error) {
+            // Server not ready yet
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+    }
+    
+    throw new Error('Test Studio server failed to start');
 }
+
+// Main launcher function
+async function launchTestStudio() {
+    console.log('🖥️  Launching Professional Test Studio with Chromium...');
+    console.log('🌐 Studio Interface: http://localhost:8090');
+    console.log('🟦 Using Profile 7 (your confirmed working profile)');
+    console.log('✨ Features: Real-time monitoring, profiles, queue management\n');
+
+    console.log('🟦 Step 1: Starting Test Studio server...');
+    
+    // Start the server in background
+    const serverProcess = spawn('node', ['run-all-tests-gui.js', '--gui'], {
+        cwd: __dirname,
+        stdio: ['inherit', 'pipe', 'pipe']
+    });
+
+    let serverOutput = '';
+    
+    serverProcess.stdout.on('data', (data) => {
+        const text = data.toString();
+        serverOutput += text;
+        
+        // Only show important server messages
+        if (text.includes('server started') || text.includes('ready')) {
+            console.log('🌐', text.trim());
+        }
+    });
+
+    serverProcess.stderr.on('data', (data) => {
+        console.error('Server error:', data.toString());
+    });
+
+    try {
+        // Wait for server to be ready
+        await waitForServer();
+        
+        console.log('🟦 Step 2: Opening Chromium with Profile 7...');
+        
+        // YOUR EXACT WORKING COMMAND
+        const chromiumCommand = 'C:\\Users\\lucia\\.codeium\\windsurf\\ws-browser\\chromium-1155\\chrome-win\\chrome.exe';
+        const chromiumArgs = ['--profile-directory=Profile 7', 'http://localhost:8090'];
+        
+        console.log(`🟦 Running: ${chromiumCommand} ${chromiumArgs.join(' ')}`);
+        
+        // Launch Chromium with your exact command
+        const chromiumProcess = spawn(chromiumCommand, chromiumArgs, {
+            detached: true,
+            stdio: 'ignore'
+        });
+        
+        chromiumProcess.unref(); // Don't wait for it
+        
+        console.log('✅ SUCCESS! Chromium launched with Profile 7');
+        console.log('🌐 Test Studio should open in Chromium');
+
+        console.log('\n📝 Press Ctrl+C to stop the server');
+        
+        // Handle cleanup on exit
+        process.on('SIGINT', () => {
+            console.log('\n🛑 Shutting down...');
+            serverProcess.kill();
+            process.exit(0);
+        });
+        
+        // Keep process alive
+        process.stdin.resume();
+        
+    } catch (error) {
+        console.error('❌ Failed to start Test Studio:', error.message);
+        serverProcess.kill();
+        process.exit(1);
+    }
+}
+
+// Start the launcher
+launchTestStudio().catch(error => {
+    console.error('❌ Launch failed:', error.message);
+    process.exit(1);
+});

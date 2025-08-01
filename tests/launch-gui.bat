@@ -17,7 +17,8 @@ if errorlevel 1 (
 echo ✅ Node.js is available
 echo.
 
-echo 🚀 Starting GUI Test Runner...
+echo 🚀 Starting GUI Test Runner with Chromium Integration...
+echo 🟦 Chromium Profile 7 (confirmed working) will be used for testing
 echo 🌐 GUI will be available at: http://localhost:8090
 echo 📝 Press Ctrl+C to stop the server
 echo.
