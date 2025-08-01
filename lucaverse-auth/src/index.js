@@ -663,13 +663,7 @@ function createOAuthSuccessHTML(env, userInfo, sessionId, sessionToken) {
           timeoutMs: 10000
         };
         
-        // CRITICAL DEBUG: Log configuration
-        addDebugLog(\`🔧 CONFIG.frontendUrl: \${CONFIG.frontendUrl}\`, 'info');
-        addDebugLog(\`🔧 CONFIG.workerOrigin: \${CONFIG.workerOrigin}\`, 'info');
-        addDebugLog(\`🔧 window.opener exists: \${!!window.opener}\`, 'info');
-        addDebugLog(\`🔧 window.opener.closed: \${window.opener ? window.opener.closed : 'N/A'}\`, 'info');
-        
-        // Debug logging
+        // Debug logging setup - MUST BE FIRST
         const debugInfo = document.getElementById('debug-info');
         let debugCount = 0;
         
@@ -689,6 +683,12 @@ function createOAuthSuccessHTML(env, userInfo, sessionId, sessionToken) {
             if (firstEntry) firstEntry.remove();
           }
         }
+        
+        // CRITICAL DEBUG: Log configuration (now after function is defined)
+        addDebugLog(\`🔧 CONFIG.frontendUrl: \${CONFIG.frontendUrl}\`, 'info');
+        addDebugLog(\`🔧 CONFIG.workerOrigin: \${CONFIG.workerOrigin}\`, 'info');
+        addDebugLog(\`🔧 window.opener exists: \${!!window.opener}\`, 'info');
+        addDebugLog(\`🔧 window.opener.closed: \${window.opener ? window.opener.closed : 'N/A'}\`, 'info');
         
         // Authentication data factory - generates timestamp when called
         function createAuthData() {
@@ -787,7 +787,7 @@ function createOAuthSuccessHTML(env, userInfo, sessionId, sessionToken) {
           }
           
           async sendToTarget(target) {
-            // CRITICAL FIX: Only try the specific frontend origin first, then fallback to wildcard
+            // CRITICAL FIX: Enhanced message delivery with multiple attempts and better timing
             const messageData = createAuthData(); // Generate fresh timestamp once
             
             addDebugLog(\`🎯 ATTEMPTING SEND TO TARGET: \${target.name}\`, 'info');
@@ -796,62 +796,88 @@ function createOAuthSuccessHTML(env, userInfo, sessionId, sessionToken) {
             addDebugLog(\`   Message data type: \${messageData.type}\`, 'info');
             addDebugLog(\`   Frontend URL: \${CONFIG.frontendUrl}\`, 'info');
             
-            try {
-              // Try specific origin first (most secure)
-              addDebugLog(\`📤 Sending to \${target.name} with origin: \${CONFIG.frontendUrl}\`);
-              target.window.postMessage(messageData, CONFIG.frontendUrl);
-              addDebugLog(\`✅ postMessage() call completed for \${target.name} (\${CONFIG.frontendUrl})\`, 'success');
-              
-              // Wait a moment to see if any errors occur
-              await new Promise(resolve => setTimeout(resolve, 100));
-              addDebugLog(\`✅ No immediate errors - message likely sent successfully\`, 'success');
-              return true;
-              
-            } catch (error) {
-              addDebugLog(\`⚠️ Specific origin failed for \${target.name}: \${error.message}\`, 'warning');
-              
+            // CRITICAL FIX: Multiple send attempts with different timings
+            const sendAttempts = [
+              { delay: 0, origin: CONFIG.frontendUrl, name: 'immediate-specific' },
+              { delay: 100, origin: CONFIG.frontendUrl, name: 'delayed-specific' },
+              { delay: 200, origin: '*', name: 'delayed-wildcard' },
+              { delay: 500, origin: CONFIG.frontendUrl, name: 'backup-specific' },
+              { delay: 800, origin: '*', name: 'backup-wildcard' }
+            ];
+            
+            let successCount = 0;
+            
+            for (const attempt of sendAttempts) {
               try {
-                // Fallback to wildcard
-                addDebugLog(\`📤 Fallback: Sending to \${target.name} with wildcard origin\`);
-                target.window.postMessage(messageData, '*');
-                addDebugLog(\`✅ Wildcard postMessage() call completed for \${target.name}\`, 'success');
+                await new Promise(resolve => setTimeout(resolve, attempt.delay));
                 
-                await new Promise(resolve => setTimeout(resolve, 100));
-                addDebugLog(\`✅ Wildcard message likely sent successfully\`, 'success');
-                return true;
+                // Check if window is still available
+                if (!target.window || target.window.closed) {
+                  addDebugLog(\`❌ Target window no longer available for attempt: \${attempt.name}\`, 'error');
+                  break;
+                }
                 
-              } catch (fallbackError) {
-                addDebugLog(\`❌ All attempts failed for \${target.name}: \${fallbackError.message}\`, 'error');
-                return false;
+                addDebugLog(\`📤 Attempt \${attempt.name}: Sending to \${target.name} with origin: \${attempt.origin}\`);
+                target.window.postMessage(messageData, attempt.origin);
+                addDebugLog(\`✅ postMessage() call completed for \${attempt.name}\`, 'success');
+                successCount++;
+                
+                // Wait to see if any errors occur
+                await new Promise(resolve => setTimeout(resolve, 50));
+                
+              } catch (error) {
+                addDebugLog(\`⚠️ Attempt \${attempt.name} failed: \${error.message}\`, 'warning');
               }
+            }
+            
+            if (successCount > 0) {
+              addDebugLog(\`✅ MESSAGE DELIVERY SUCCESS: \${successCount} successful attempts to \${target.name}\`, 'success');
+              return true;
+            } else {
+              addDebugLog(\`❌ ALL MESSAGE ATTEMPTS FAILED for \${target.name}\`, 'error');
+              return false;
             }
           }
           
           async closeWindow() {
-            addDebugLog('Starting window close sequence', 'info');
+            addDebugLog('Starting window close sequence - EXTENDED TIMING for message delivery', 'info');
             
+            // CRITICAL FIX: Extended delays to ensure message delivery completes
             const closeAttempts = [
-              { delay: 100, method: 'immediate' },
-              { delay: 500, method: 'delayed' },
-              { delay: 1000, method: 'force' },
-              { delay: 2000, method: 'navigation' }
+              { delay: 2000, method: 'first-delayed' },    // Wait 2 seconds first
+              { delay: 3000, method: 'second-delayed' },   // Wait 3 seconds  
+              { delay: 4000, method: 'third-delayed' },    // Wait 4 seconds
+              { delay: 6000, method: 'force-close' },      // Force close after 6 seconds
+              { delay: 8000, method: 'navigation' }        // Navigate as final backup
             ];
+            
+            // Show extended message to user
+            setTimeout(() => {
+              const closeMsg = document.querySelector('.close-message');
+              if (closeMsg) {
+                closeMsg.innerHTML = 'Message sent! This window will close in a few seconds...';
+              }
+            }, 1000);
             
             for (const attempt of closeAttempts) {
               setTimeout(() => {
                 if (this.windowClosed) return;
                 
-                addDebugLog(\`Close attempt: \${attempt.method}\`, 'info');
+                addDebugLog(\`Close attempt: \${attempt.method} (after \${attempt.delay}ms)\`, 'info');
                 
                 switch (attempt.method) {
-                  case 'immediate':
-                  case 'delayed':
-                  case 'force':
+                  case 'first-delayed':
+                  case 'second-delayed':
+                  case 'third-delayed':
+                  case 'force-close':
                     try {
+                      addDebugLog('Attempting window.close()', 'info');
                       window.close();
                       if (window.closed) {
                         addDebugLog('Window closed successfully', 'success');
                         this.windowClosed = true;
+                      } else {
+                        addDebugLog('window.close() called but window still open', 'warning');
                       }
                     } catch (error) {
                       addDebugLog(\`Close failed: \${error.message}\`, 'error');
@@ -861,7 +887,7 @@ function createOAuthSuccessHTML(env, userInfo, sessionId, sessionToken) {
                   case 'navigation':
                     if (!this.windowClosed) {
                       try {
-                        addDebugLog('Attempting navigation to about:blank', 'warning');
+                        addDebugLog('Final fallback: navigation to about:blank', 'warning');
                         window.location.href = 'about:blank';
                       } catch (error) {
                         addDebugLog(\`Navigation failed: \${error.message}\`, 'error');
@@ -872,15 +898,16 @@ function createOAuthSuccessHTML(env, userInfo, sessionId, sessionToken) {
               }, attempt.delay);
             }
             
-            // Final fallback - show manual close message
+            // Final fallback - show manual close message after 10 seconds
             setTimeout(() => {
               if (!this.windowClosed) {
                 addDebugLog('All close attempts failed - manual intervention required', 'error');
-                document.querySelector('.close-message').innerHTML = 
-                  'Please close this window manually to complete authentication.';
-                document.querySelector('.spinner').style.display = 'none';
+                const closeMsg = document.querySelector('.close-message');
+                const spinner = document.querySelector('.spinner');
+                if (closeMsg) closeMsg.innerHTML = 'Please close this window manually to complete authentication.';
+                if (spinner) spinner.style.display = 'none';
               }
-            }, 5000);
+            }, 10000);
           }
           
           delay(ms) {
@@ -894,23 +921,41 @@ function createOAuthSuccessHTML(env, userInfo, sessionId, sessionToken) {
             addDebugLog('Creating popup communicator', 'info');
             const communicator = new PopupCommunicator();
             
+            // CRITICAL FIX: Extended timing for proper message delivery
+            addDebugLog('Starting message delivery sequence...', 'info');
+            
             // Send authentication success message
             await communicator.sendMessage();
             
-            // Wait a moment for message processing
-            await communicator.delay(200);
+            addDebugLog('Message sending completed, waiting for processing...', 'info');
             
-            // Attempt to close the window
+            // CRITICAL FIX: Wait longer for message processing (extended from 200ms to 1500ms)
+            await communicator.delay(1500);
+            
+            addDebugLog('Message processing wait completed, starting window close sequence...', 'info');
+            
+            // Attempt to close the window (now with extended timing)
             await communicator.closeWindow();
             
           } catch (error) {
             addDebugLog(\`Critical error in OAuth callback: \${error.message}\`, 'error');
             console.error('OAuth callback error:', error);
             
-            // Show error to user
-            document.querySelector('.success-message').textContent = 'Authentication completed with warnings';
-            document.querySelector('.close-message').innerHTML = 
+            // Show error to user but still try to send message
+            const successMsg = document.querySelector('.success-message');
+            const closeMsg = document.querySelector('.close-message');
+            
+            if (successMsg) successMsg.textContent = 'Authentication completed with warnings';
+            if (closeMsg) closeMsg.innerHTML = 
               'Please close this window manually. If the main page does not update, please refresh it.';
+              
+            // Still try to send the success message even with error
+            try {
+              const communicator = new PopupCommunicator();
+              await communicator.sendMessage();
+            } catch (secondaryError) {
+              addDebugLog(\`Secondary message send failed: \${secondaryError.message}\`, 'error');
+            }
           }
         }
         
@@ -923,19 +968,25 @@ function createOAuthSuccessHTML(env, userInfo, sessionId, sessionToken) {
           addDebugLog(\`JavaScript error: \${event.error?.message || event.message}\`, 'error');
         });
         
-        // Start the process
-        addDebugLog('Starting OAuth callback process in 100ms', 'info');
-        setTimeout(runOAuthCallback, 100);
+        // Start the process with enhanced timing
+        addDebugLog('Starting OAuth callback process in 500ms (extended for stability)', 'info');
+        setTimeout(runOAuthCallback, 500);
         
-        // Backup execution on DOM ready
+        // Backup execution on DOM ready with longer delay
         if (document.readyState === 'loading') {
           document.addEventListener('DOMContentLoaded', () => {
             setTimeout(() => {
               addDebugLog('DOM ready - running backup execution', 'warning');
               runOAuthCallback();
-            }, 200);
+            }, 800);
           });
         }
+        
+        // Additional backup - ensure execution even if other timers fail
+        setTimeout(() => {
+          addDebugLog('Final backup execution timer (safety net)', 'warning');
+          runOAuthCallback();
+        }, 1000);
         
       })();
     </script>

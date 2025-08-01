@@ -1,0 +1,19 @@
+{
+  "timestamp": "2025-08-01T13:27:42.921Z",
+  "duration": 26255,
+  "results": {
+    "oauth": {
+      "status": "FAILED",
+      "duration": 4805,
+      "testCount": 25,
+      "output": "",
+      "error": "Test process exited with code 1"
+    }
+  },
+  "summary": {
+    "total": 1,
+    "passed": 0,
+    "failed": 1,
+    "successRate": 0
+  }
+}

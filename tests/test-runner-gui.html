@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>🧪 Lucaverse Test Studio</title>
     <link rel="stylesheet" href="test-runner-styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
 </head>
 <body>
     <!-- Main Layout Container -->
@@ -27,138 +28,137 @@
             </div>
 
             <!-- Test Configuration -->
-            <section class="sidebar-section">
-                <h3>🎯 Test Configuration</h3>
-                
-                <!-- Profile Management -->
-                <div class="profile-management">
-                    <select id="test-profiles" class="profile-selector">
-                        <option value="">Select Profile...</option>
-                        <option value="smoke">Smoke Tests</option>
-                        <option value="regression">Full Regression</option>
-                        <option value="critical">Critical Path</option>
-                    </select>
-                    <div class="profile-actions">
-                        <button class="btn btn-icon" id="save-profile" title="Save Profile">💾</button>
-                        <button class="btn btn-icon" id="manage-profiles" title="Manage">⚙️</button>
-                    </div>
+            <section class="sidebar-section collapsible">
+                <div class="section-header" data-section="test-config">
+                    <h3>🎯 Test Configuration</h3>
+                    <button class="collapse-btn">▼</button>
                 </div>
-
-                <!-- Advanced Filters -->
-                <div class="advanced-filters">
-                    <div class="filter-group">
-                        <label>Search Tests</label>
-                        <div class="search-input">
-                            <input type="text" placeholder="Search tests..." id="test-search">
-                            <span class="search-icon">🔍</span>
+                <div class="section-content">
+                    <!-- Profile Management -->
+                    <div class="profile-management">
+                        <select id="test-profiles" class="profile-selector">
+                            <option value="">Select Profile...</option>
+                            <option value="smoke">Smoke Tests</option>
+                            <option value="regression">Full Regression</option>
+                            <option value="critical">Critical Path</option>
+                        </select>
+                        <div class="profile-actions">
+                            <button class="btn btn-icon" id="save-profile" title="Save Profile">💾</button>
+                            <button class="btn btn-icon" id="manage-profiles" title="Manage">⚙️</button>
                         </div>
                     </div>
-                    
-                    <div class="filter-group">
-                        <label>Priority</label>
-                        <select id="priority-filter">
-                            <option value="all">All Priorities</option>
-                            <option value="critical">Critical</option>
-                            <option value="high">High</option>
-                            <option value="medium">Medium</option>
-                            <option value="low">Low</option>
-                        </select>
-                    </div>
 
-                    <div class="filter-group">
-                        <label>Test Suites</label>
-                        <div class="suite-checkboxes">
-                            <label class="checkbox-item">
-                                <input type="checkbox" id="unit-tests" checked>
-                                <span class="checkmark"></span>
-                                <span class="suite-name">Unit Tests</span>
-                                <span class="test-count">15</span>
-                            </label>
-                            <label class="checkbox-item">
-                                <input type="checkbox" id="gui-tests" checked>
-                                <span class="checkmark"></span>
-                                <span class="suite-name">GUI Tests</span>
-                                <span class="test-count">40</span>
-                            </label>
-                            <label class="checkbox-item">
-                                <input type="checkbox" id="integration-tests" checked>
-                                <span class="checkmark"></span>
-                                <span class="suite-name">Integration</span>
-                                <span class="test-count">12</span>
-                            </label>
-                            <label class="checkbox-item">
-                                <input type="checkbox" id="oauth-tests" checked>
-                                <span class="checkmark"></span>
-                                <span class="suite-name">OAuth Tests</span>
-                                <span class="test-count">25</span>
-                            </label>
+                    <!-- Advanced Filters -->
+                    <div class="advanced-filters">
+                        <div class="filter-group full-width">
+                            <label>Search Tests</label>
+                            <div class="search-input">
+                                <input type="text" placeholder="Search tests..." id="test-search">
+                                <span class="search-icon">🔍</span>
+                            </div>
+                        </div>
+                        
+                        <div class="filter-row">
+                            <div class="filter-group">
+                                <label>Priority</label>
+                                <select id="priority-filter">
+                                    <option value="all">All Priorities</option>
+                                    <option value="critical">Critical</option>
+                                    <option value="high">High</option>
+                                    <option value="medium">Medium</option>
+                                    <option value="low">Low</option>
+                                </select>
+                            </div>
+                            
+                            <div class="filter-group">
+                                <label>Status</label>
+                                <select id="status-filter">
+                                    <option value="all">All Status</option>
+                                    <option value="active">Active</option>
+                                    <option value="pending">Pending</option>
+                                    <option value="disabled">Disabled</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="filter-group full-width">
+                            <label>Test Suites</label>
+                            <div class="suite-checkboxes">
+                                <label class="checkbox-item">
+                                    <input type="checkbox" id="unit-tests" checked>
+                                    <span class="checkmark"></span>
+                                    <span class="suite-name">Unit Tests</span>
+                                    <span class="test-count">15</span>
+                                </label>
+                                <label class="checkbox-item">
+                                    <input type="checkbox" id="gui-tests" checked>
+                                    <span class="checkmark"></span>
+                                    <span class="suite-name">GUI Tests</span>
+                                    <span class="test-count">40</span>
+                                </label>
+                                <label class="checkbox-item">
+                                    <input type="checkbox" id="integration-tests" checked>
+                                    <span class="checkmark"></span>
+                                    <span class="suite-name">Integration</span>
+                                    <span class="test-count">12</span>
+                                </label>
+                                <label class="checkbox-item">
+                                    <input type="checkbox" id="oauth-tests" checked>
+                                    <span class="checkmark"></span>
+                                    <span class="suite-name">OAuth Tests</span>
+                                    <span class="test-count">25</span>
+                                </label>
+                            </div>
                         </div>
                     </div>
                 </div>
             </section>
 
             <!-- Test Queue -->
-            <section class="sidebar-section">
-                <div class="section-header">
+            <section class="sidebar-section collapsible">
+                <div class="section-header" data-section="test-queue">
                     <h3>🔄 Test Queue</h3>
-                    <button class="btn btn-small" id="add-to-queue">Add</button>
-                </div>
-                <div class="queue-list" id="queue-list">
-                    <div class="queue-empty">
-                        <span class="empty-icon">📝</span>
-                        <span class="empty-text">No queued tests</span>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <button class="btn btn-compact" id="add-to-queue">Add</button>
+                        <button class="collapse-btn">▼</button>
                     </div>
                 </div>
-            </section>
-
-            <!-- Performance Metrics -->
-            <section class="sidebar-section">
-                <h3>📊 Performance</h3>
-                <div class="metrics-grid">
-                    <div class="metric-card">
-                        <div class="metric-value" id="avg-speed">0ms</div>
-                        <div class="metric-label">Avg Speed</div>
-                        <div class="metric-chart">
-                            <div class="mini-chart" id="speed-chart"></div>
-                        </div>
-                    </div>
-                    <div class="metric-card">
-                        <div class="metric-value" id="memory-usage">0MB</div>
-                        <div class="metric-label">Memory</div>
-                        <div class="metric-chart">
-                            <div class="mini-chart" id="memory-chart"></div>
-                        </div>
-                    </div>
-                    <div class="metric-card">
-                        <div class="metric-value" id="error-rate">0%</div>
-                        <div class="metric-label">Error Rate</div>
-                        <div class="metric-chart">
-                            <div class="mini-chart" id="error-chart"></div>
+                <div class="section-content">
+                    <div class="queue-list" id="queue-list">
+                        <div class="queue-empty">
+                            <span class="empty-icon">📝</span>
+                            <span class="empty-text">No queued tests</span>
                         </div>
                     </div>
                 </div>
             </section>
 
             <!-- Control Buttons -->
-            <section class="sidebar-section">
-                <div class="control-buttons">
-                    <button id="start-tests" class="btn btn-primary">
-                        <span class="btn-icon">▶️</span>
-                        Start Tests
-                    </button>
-                    <button id="stop-tests" class="btn btn-secondary" disabled>
-                        <span class="btn-icon">⏹️</span>
-                        Stop Tests
-                    </button>
-                    <div class="secondary-controls">
-                        <button id="clear-results" class="btn btn-tertiary">
-                            <span class="btn-icon">🗑️</span>
-                            Clear Results
+            <section class="sidebar-section collapsible">
+                <div class="section-header" data-section="controls">
+                    <h3>🎮 Controls</h3>
+                    <button class="collapse-btn">▼</button>
+                </div>
+                <div class="section-content">
+                    <div class="control-buttons">
+                        <button id="start-tests" class="btn btn-primary">
+                            <span class="btn-icon">▶️</span>
+                            Start Tests
                         </button>
-                        <button id="export-report" class="btn btn-tertiary">
-                            <span class="btn-icon">📊</span>
-                            Export
+                        <button id="stop-tests" class="btn btn-secondary" disabled>
+                            <span class="btn-icon">⏹️</span>
+                            Stop Tests
                         </button>
+                        <div class="secondary-controls">
+                            <button id="clear-results" class="btn btn-tertiary">
+                                <span class="btn-icon">🗑️</span>
+                                Clear Results
+                            </button>
+                            <button id="export-report" class="btn btn-tertiary">
+                                <span class="btn-icon">📊</span>
+                                Export
+                            </button>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -184,6 +184,22 @@
                     <div class="stat-card">
                         <div class="stat-number" id="skipped-tests">0</div>
                         <div class="stat-label">Skipped</div>
+                    </div>
+                </div>
+                
+                <!-- Performance Metrics in Header -->
+                <div class="header-performance-metrics">
+                    <div class="header-metric-card">
+                        <div class="header-metric-value" id="avg-speed">0ms</div>
+                        <div class="header-metric-label">Avg Speed</div>
+                    </div>
+                    <div class="header-metric-card">
+                        <div class="header-metric-value" id="memory-usage">0MB</div>
+                        <div class="header-metric-label">Memory</div>
+                    </div>
+                    <div class="header-metric-card">
+                        <div class="header-metric-value" id="error-rate">0%</div>
+                        <div class="header-metric-label">Error Rate</div>
                     </div>
                 </div>
                 
@@ -350,6 +366,14 @@
                     <span>Export Report</span>
                 </div>
                 <div class="shortcut-item">
+                    <kbd>Ctrl+[</kbd>
+                    <span>Collapse All Sections</span>
+                </div>
+                <div class="shortcut-item">
+                    <kbd>Ctrl+]</kbd>
+                    <span>Expand All Sections</span>
+                </div>
+                <div class="shortcut-item">
                     <kbd>F1</kbd>
                     <span>Show/Hide Help</span>
                 </div>
@@ -358,5 +382,13 @@
     </div>
 
     <script src="test-runner-script.js"></script>
+    <script>
+        // Initialize global test studio instance
+        let testStudio;
+        document.addEventListener('DOMContentLoaded', () => {
+            testStudio = new TestStudio();
+            window.testStudio = testStudio; // Make globally accessible
+        });
+    </script>
 </body>
 </html>

@@ -2,7 +2,7 @@
 
 /**
  * 🧪 Enhanced Test Suite Runner with GUI for Lucaverse.com
- * Features: Real-time GUI, WebSocket communication, comprehensive reporting, Chromium integration
+ * Features: Real-time GUI, WebSocket communication, comprehensive reporting
  */
 
 import { execSync, spawn } from 'child_process';
@@ -11,8 +11,7 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { createServer } from 'http';
 import { WebSocketServer } from 'ws';
-import { parse } from 'url';
-import { chromiumManager } from './chromium-manager.js';
+// Using WHATWG URL API instead of deprecated url.parse
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -60,7 +59,6 @@ class EnhancedTestRunner {
     this.httpServer = null;
     this.devProcess = null;
     this.reportDir = path.join(__dirname, 'test-reports');
-    this.chromiumManager = chromiumManager; // Add Chromium manager reference
     
     // Ensure reports directory exists
     if (!fs.existsSync(this.reportDir)) {
@@ -72,8 +70,8 @@ class EnhancedTestRunner {
     return new Promise((resolve, reject) => {
       // Create HTTP server to serve the GUI
       this.httpServer = createServer((req, res) => {
-        const parsedUrl = parse(req.url, true);
-        const pathname = parsedUrl.pathname;
+        const url = new URL(req.url, `http://${req.headers.host}`);
+        const pathname = url.pathname;
         
         let filePath;
         if (pathname === '/' || pathname === '/index.html') {
@@ -82,6 +80,10 @@ class EnhancedTestRunner {
           filePath = path.join(__dirname, 'test-runner-styles.css');
         } else if (pathname === '/test-runner-script.js') {
           filePath = path.join(__dirname, 'test-runner-script.js');
+        } else if (pathname === '/favicon.ico') {
+          res.writeHead(204); // No content
+          res.end();
+          return;
         } else {
           res.writeHead(404);
           res.end('Not Found');
@@ -198,76 +200,121 @@ class EnhancedTestRunner {
       level: 'info'
     });
 
-    // Create Chromium tab for test execution if Chromium is available
-    let testTabId = null;
-    const chromiumRunning = await this.chromiumManager.isChromiumRunning();
-    if (chromiumRunning) {
-      try {
-        // Create a dedicated tab for this test suite
-        const testUrl = 'http://localhost:5155'; // Base URL for tests
-        testTabId = await this.chromiumManager.createTestTab(testUrl, suiteName);
-        if (testTabId) {
-          this.broadcastToClients({
-            type: 'log',
-            message: `🟦 Created Chromium tab for ${suiteName} (Tab ID: ${testTabId})`,
-            level: 'info'
-          });
-        }
-      } catch (error) {
-        console.error('⚠️ Failed to create Chromium tab:', error.message);
-        this.broadcastToClients({
-          type: 'log',
-          message: `Warning: Could not create Chromium tab for ${suiteName}`,
-          level: 'warning'
-        });
-      }
-    }
-
     const startTime = Date.now();
     
     try {
-      // Simulate individual test reporting for better GUI feedback
-      const testCount = config.testCount || 10;
-      for (let i = 0; i < testCount; i++) {
-        const testName = `${suiteName}/test-${i + 1}`;
+      // Actually run the test command instead of simulating
+      console.log(`Executing: ${config.command}`);
+      
+      this.broadcastToClients({
+        type: 'log',
+        message: `Executing: ${config.command}`,
+        level: 'info'
+      });
+
+      // Create a child process to run the actual tests
+      const testProcess = spawn('powershell.exe', ['-Command', config.command], {
+        cwd: path.dirname(__dirname), // Run from main project directory
+        stdio: ['ignore', 'pipe', 'pipe']
+      });
+
+      let outputBuffer = '';
+      let errorBuffer = '';
+      let testsPassed = 0;
+      let testsFailed = 0;
+      let currentTest = 0;
+
+      // Process stdout
+      testProcess.stdout.on('data', (data) => {
+        const output = data.toString();
+        outputBuffer += output;
+        
+        // Parse test output for real-time updates
+        const lines = output.split('\n');
+        for (const line of lines) {
+          // Look for test execution patterns
+          if (line.includes('✓') || line.includes('✔') || line.includes('PASS')) {
+            testsPassed++;
+            currentTest++;
+            this.broadcastToClients({
+              type: 'test-complete',
+              testName: `${suiteName}/test-${currentTest}`,
+              status: 'passed',
+              duration: 100
+            });
+          } else if (line.includes('✗') || line.includes('✖') || line.includes('FAIL')) {
+            testsFailed++;
+            currentTest++;
+            this.broadcastToClients({
+              type: 'test-complete',
+              testName: `${suiteName}/test-${currentTest}`,
+              status: 'failed',
+              duration: 100,
+              error: line
+            });
+          }
+          
+          // Broadcast log line
+          if (line.trim()) {
+            this.broadcastToClients({
+              type: 'log',
+              message: line,
+              level: 'info'
+            });
+          }
+        }
+
+        // Update progress
+        if (currentTest > 0) {
+          this.broadcastToClients({
+            type: 'progress',
+            completed: currentTest,
+            total: config.testCount
+          });
+        }
+      });
+
+      // Process stderr
+      testProcess.stderr.on('data', (data) => {
+        const error = data.toString();
+        errorBuffer += error;
         
         this.broadcastToClients({
-          type: 'test-start',
-          testName,
-          progress: { completed: i, total: testCount }
+          type: 'log',
+          message: error,
+          level: 'error'
+        });
+      });
+
+      // Wait for process to complete
+      await new Promise((resolve, reject) => {
+        testProcess.on('close', (code) => {
+          if (code === 0) {
+            resolve();
+          } else {
+            reject(new Error(`Test process exited with code ${code}`));
+          }
         });
 
-        // Simulate test execution time
-        await new Promise(resolve => setTimeout(resolve, Math.random() * 1000 + 200));
-        
-        // Simulate test results (90% pass rate)
-        const status = Math.random() > 0.1 ? 'passed' : 'failed';
-        const duration = Math.floor(Math.random() * 1000) + 100;
-        const error = status === 'failed' ? `Simulated failure in ${testName}` : null;
-        
-        this.broadcastToClients({
-          type: 'test-complete',
-          testName,
-          status,
-          duration,
-          error
-        });
+        testProcess.on('error', reject);
 
-        this.broadcastToClients({
-          type: 'progress',
-          completed: i + 1,
-          total: testCount
-        });
-      }
+        // Timeout handling
+        setTimeout(() => {
+          testProcess.kill();
+          reject(new Error('Test execution timed out'));
+        }, config.timeout);
+      });
 
       const duration = Date.now() - startTime;
       
       this.results[suiteName] = {
-        status: 'PASSED',
+        status: testsFailed === 0 ? 'PASSED' : 'FAILED',
         duration,
         testCount: config.testCount,
-        output: `Successfully completed ${config.testCount} tests`,
-        error: null
+        output: outputBuffer,
+        error: errorBuffer || null,
+        actualPassed: testsPassed,
+        actualFailed: testsFailed
       };
 
       this.broadcastToClients({
@@ -276,7 +323,7 @@ class EnhancedTestRunner {
         duration
       });
 
-      console.log(`✅ ${config.description} PASSED (${Math.round(duration/1000)}s)`);
+      console.log(`${testsFailed === 0 ? '✅' : '❌'} ${config.description} ${testsFailed === 0 ? 'PASSED' : 'FAILED'} (${Math.round(duration/1000)}s)`);
 
     } catch (error) {
       const duration = Date.now() - startTime;
@@ -296,20 +343,6 @@ class EnhancedTestRunner {
         message: `${config.description} failed: ${error.message}`,
         level: 'error'
       });
-    } finally {
-      // Clean up Chromium test tab if it was created
-      if (testTabId && chromiumRunning) {
-        try {
-          await this.chromiumManager.closeTestTab(suiteName);
-          this.broadcastToClients({
-            type: 'log',
-            message: `🟦 Closed Chromium tab for ${suiteName}`,
-            level: 'info'
-          });
-        } catch (error) {
-          console.error('⚠️ Failed to close Chromium tab:', error.message);
-        }
-      }
     }
   }
 
@@ -317,9 +350,9 @@ class EnhancedTestRunner {
     console.log('🚀 Starting development server...');
     
     return new Promise((resolve, reject) => {
-      const devProcess = spawn('npm', ['run', 'dev'], {
+      const devProcess = spawn('powershell.exe', ['-Command', 'npm run dev'], {
         stdio: 'pipe',
-        cwd: process.cwd()
+        cwd: path.dirname(__dirname) // Go up one level to main project directory
       });
 
       let serverReady = false;
@@ -359,13 +392,6 @@ class EnhancedTestRunner {
       console.log('🛑 Stopping development server...');
       this.devProcess.kill();
       this.devProcess = null;
-    }
-    
-    // Clean up Chromium test tabs (but keep GUI tab open)
-    if (this.chromiumManager) {
-      this.chromiumManager.cleanup().catch(error => {
-        console.error('⚠️ Chromium cleanup error:', error.message);
-      });
     }
   }
 
@@ -471,20 +497,9 @@ class EnhancedTestRunner {
     const args = process.argv.slice(2);
     
     if (args.includes('--gui')) {
-      console.log('🖥️  Starting GUI mode with Chromium integration...');
+      console.log('🖥️  Starting GUI mode...');
       await this.startWebServer();
       console.log('✨ GUI server is ready at http://localhost:8090');
-      
-      // Check if Chromium is running (GUI should already be open from launch)
-      const chromiumStatus = await this.chromiumManager.isChromiumRunning();
-      if (chromiumStatus) {
-        console.log('🟦 Chromium detected - confirming GUI is accessible...');
-        await this.chromiumManager.openGUIInChromium(); // This will find existing or confirm access
-        console.log('✅ GUI is accessible in Chromium!');
-      } else {
-        console.log('⚠️  Chromium not detected. Please open http://localhost:8090 manually');
-        console.log('💡 The GUI should have opened automatically if Chromium launched successfully');
-      }
       
       console.log('📝 Press Ctrl+C to stop the server');
       

@@ -77,12 +77,27 @@ async function waitForServer(maxAttempts = 20) {
     throw new Error('Test Studio server failed to start');
 }
 
+// Kill any existing processes on port 8090
+async function killExistingProcesses() {
+    try {
+        console.log('🧹 Cleaning up any existing processes on port 8090...');
+        execSync('npx kill-port 8090', { stdio: 'inherit' });
+        await new Promise(resolve => setTimeout(resolve, 3000)); // Wait 3 seconds
+        console.log('✅ Port cleanup complete');
+    } catch (error) {
+        console.log('ℹ️  No existing processes found on port 8090');
+    }
+}
+
 // Main launcher function
 async function launchTestStudio() {
     console.log('🖥️  Launching Professional Test Studio with Chromium...');
     console.log('🌐 Studio Interface: http://localhost:8090');
     console.log('🟦 Using Profile 7 (your confirmed working profile)');
     console.log('✨ Features: Real-time monitoring, profiles, queue management\n');
+
+    // Clean up existing processes first
+    await killExistingProcesses();
 
     console.log('🟦 Step 1: Starting Test Studio server...');
     
