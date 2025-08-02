@@ -44,4 +44,4 @@ OAUTH-Security-Guide.md
 *.png
 *.md
 *.txt
-test-results/
+output_reports/

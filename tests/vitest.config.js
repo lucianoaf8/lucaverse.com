@@ -6,9 +6,9 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
-    setupFiles: './tests/setup.js',
+    setupFiles: './utils/test-setup.js',
     css: true,
-    include: ['tests/unit-tests/**/*.{test,spec}.{js,jsx,ts,tsx}'],
+    include: ['unit-tests/**/*.{test,spec}.{js,jsx,ts,tsx}'],
     exclude: [
       'node_modules/',
       'tests/gui-tests/',
@@ -19,6 +19,7 @@ export default defineConfig({
     ],
     coverage: {
       reporter: ['text', 'json', 'html'],
+      reportsDirectory: 'output_reports/coverage',
       exclude: [
         'node_modules/',
         'tests/gui-tests/',
@@ -31,7 +32,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': '/src',
+      '@': '../src',
     },
   },
 })

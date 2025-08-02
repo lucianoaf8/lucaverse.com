@@ -5,19 +5,22 @@ import { defineConfig, devices } from '@playwright/test';
  * @see https://playwright.dev/docs/test-configuration
  */
 export default defineConfig({
-  testDir: './gui-tests',
+  testDir: './',
+  testMatch: ['**/gui-tests/**/*.spec.js', '**/integration-tests/**/*.spec.js'],
+  /* Output directory for test results */
+  outputDir: 'output_reports/internal/playwright-results',
   /* Run tests in files in parallel */
   fullyParallel: true,
   /* Fail the build on CI if you accidentally left test.only in the source code. */
   forbidOnly: !!process.env.CI,
   /* Retry on CI only */
   retries: process.env.CI ? 2 : 0,
-  /* Opt out of parallel tests on CI. */
-  workers: process.env.CI ? 1 : undefined,
+  /* Limit workers to prevent browser spawning issues */
+  workers: process.env.CI ? 1 : 2,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: [
-    ['html', { outputFolder: 'test-reports/playwright-report' }],
-    ['json', { outputFile: 'test-reports/playwright-results.json' }],
+    ['html', { outputFolder: 'output_reports/playwright/html-report' }],
+    ['json', { outputFile: 'output_reports/playwright/results.json' }],
     ['list']
   ],
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
@@ -48,6 +51,12 @@ export default defineConfig({
             [`--remote-debugging-port=${process.env.CHROMIUM_DEBUG_PORT}`, '--profile-directory=Profile 7'] : 
             ['--profile-directory=Profile 7'],
           headless: false, // Always run in headed mode for better debugging
+        },
+        // Limit browser resources to prevent system overload
+        contextOptions: {
+          viewport: { width: 1280, height: 720 },
+          // Reduce memory usage
+          reducedMotion: 'reduce'
         }
       },
     },
@@ -76,5 +85,6 @@ export default defineConfig({
     url: 'http://localhost:5155',
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,
+    cwd: process.cwd().includes('tests') ? '..' : '.',
   },
 });

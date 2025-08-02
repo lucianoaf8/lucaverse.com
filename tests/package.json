@@ -4,20 +4,20 @@
   "description": "Enhanced test runner with GUI and Chromium integration for Lucaverse.com",
   "type": "module",
   "scripts": {
-    "test": "node run-all-tests.js",
-    "test:gui": "npx kill-port 8090 && node -e \"setTimeout(() => process.exit(0), 2000)\" && node run-all-tests-gui.js --gui",
-    "test:unit": "node run-all-tests.js --unit-only",
-    "test:gui-only": "node run-all-tests.js --gui-only",
-    "test:oauth": "node run-all-tests.js --oauth-only",
-    "launch": "node launch-gui.js",
-    "install-deps": "npm install ws chart.js"
+    "start": "node start.js",
+    "studio": "node start.js",
+    "install-deps": "npm install",
+    "test:unit": "vitest run",
+    "test:gui": "playwright test gui-tests/",
+    "test:integration": "playwright test integration-tests/"
   },
   "dependencies": {
     "chart.js": "^4.5.0",
-    "ws": "^8.18.3"
+    "ws": "^8.18.3",
+    "express": "^4.18.2"
   },
   "devDependencies": {
-    "@playwright/test": "^1.40.0",
+    "@playwright/test": "^1.54.1",
     "vitest": "^1.0.0"
   }
 }

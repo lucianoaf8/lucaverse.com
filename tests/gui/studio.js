@@ -15,9 +15,9 @@ class TestStudio {
             skipped: 0,
             current: null
         };
-        this.testResultsData = []; // Renamed to avoid DOM element conflict
+        this.testResults = [];
         this.testQueue = [];
-        this.profilesData = new Map(); // Renamed from testProfiles to avoid DOM element conflict
+        this.testProfiles = new Map();
         this.performanceMetrics = {
             speed: [],
             memory: [],
@@ -56,6 +56,11 @@ class TestStudio {
         this.statusBadge = document.getElementById('status-badge');
         this.timeIndicator = document.getElementById('time-indicator');
         
+        // Chrome status elements
+        this.chromeStatusIndicator = document.getElementById('chrome-status-indicator');
+        this.chromeStatusText = document.getElementById('chrome-status-text');
+        this.chromeTabsCount = document.getElementById('chrome-tabs-count');
+        
         // Control elements
         this.startBtn = document.getElementById('start-tests');
         this.stopBtn = document.getElementById('stop-tests');
@@ -77,7 +82,7 @@ class TestStudio {
         this.currentTest = document.getElementById('current-test');
         this.currentTestName = document.getElementById('current-test-name');
         this.currentEta = document.getElementById('current-eta');
-        this.testResultsDisplay = document.getElementById('test-results'); // Renamed to avoid conflict
+        this.testResults = document.getElementById('test-results');
         
         // Logs elements
         this.logsContent = document.getElementById('logs-content');
@@ -86,7 +91,7 @@ class TestStudio {
         this.logLevelFilter = document.getElementById('log-level-filter');
         
         // Profile elements
-        this.testProfilesSelect = document.getElementById('test-profiles'); // Renamed to avoid conflict
+        this.testProfiles = document.getElementById('test-profiles');
         this.saveProfileBtn = document.getElementById('save-profile');
         this.manageProfilesBtn = document.getElementById('manage-profiles');
         
@@ -134,7 +139,7 @@ class TestStudio {
         
         // Profile management
         this.saveProfileBtn.addEventListener('click', () => this.saveCurrentProfile());
-        this.testProfilesSelect.addEventListener('change', (e) => this.loadProfile(e.target.value));
+        this.testProfiles.addEventListener('change', (e) => this.loadProfile(e.target.value));
         
         // Logs controls
         this.clearLogsBtn.addEventListener('click', () => this.clearLogs());
@@ -166,16 +171,6 @@ class TestStudio {
                 this.filterResultsByStatus(filter);
             });
         });
-
-        // History controls
-        const loadHistoryBtn = document.getElementById('load-history');
-        const compareRunsBtn = document.getElementById('compare-runs');
-        if (loadHistoryBtn) {
-            loadHistoryBtn.addEventListener('click', () => this.loadTestHistory());
-        }
-        if (compareRunsBtn) {
-            compareRunsBtn.addEventListener('click', () => this.compareTestRuns());
-        }
     }
 
     initializeKeyboardShortcuts() {
@@ -348,196 +343,29 @@ class TestStudio {
     }
 
     initializeWebSocket() {
-        if (!this.connectionConfig) {
-            this.connectionConfig = {
-                maxRetries: 5,
-                retryCount: 0,
-                retryDelay: 3000,
-                heartbeatInterval: 30000,
-                reconnectOnClose: true,
-                lastHeartbeat: null,
-                heartbeatTimer: null
-            };
-        }
-
         try {
-            // Clean up existing socket
-            if (this.socket) {
-                this.socket.onopen = null;
-                this.socket.onmessage = null;
-                this.socket.onclose = null;
-                this.socket.onerror = null;
-                if (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING) {
-                    this.socket.close();
-                }
-            }
-
             this.socket = new WebSocket('ws://localhost:8090');
             
             this.socket.onopen = () => {
-                this.connectionConfig.retryCount = 0;
-                this.logMessage('✅ Connected to test studio server', 'success');
-                this.updateConnectionStatus('connected');
-                this.startHeartbeat();
+                this.logMessage('Connected to test studio server', 'success');
             };
             
             this.socket.onmessage = (event) => {
-                try {
-                    const data = JSON.parse(event.data);
-                    
-                    // Handle heartbeat response
-                    if (data.type === 'pong') {
-                        this.connectionConfig.lastHeartbeat = Date.now();
-                        return;
-                    }
-                    
-                    // Validate message structure
-                    if (!this.isValidMessage(data)) {
-                        this.logMessage('⚠️ Invalid message format received', 'warning');
-                        return;
-                    }
-                    
-                    this.handleSocketMessage(data);
-                } catch (error) {
-                    this.logMessage(`❌ Message parsing error: ${error.message}`, 'error');
-                }
+                const data = JSON.parse(event.data);
+                this.handleSocketMessage(data);
             };
             
-            this.socket.onclose = (event) => {
-                this.updateConnectionStatus('disconnected');
-                this.stopHeartbeat();
-                
-                if (event.wasClean) {
-                    this.logMessage('🔌 Connection closed cleanly', 'info');
-                } else {
-                    this.logMessage('⚠️ Connection lost unexpectedly', 'warning');
-                    
-                    if (this.connectionConfig.reconnectOnClose && 
-                        this.connectionConfig.retryCount < this.connectionConfig.maxRetries) {
-                        this.connectionConfig.retryCount++;
-                        const delay = this.connectionConfig.retryDelay * Math.pow(2, this.connectionConfig.retryCount - 1);
-                        
-                        this.logMessage(`🔄 Reconnecting in ${delay/1000}s (attempt ${this.connectionConfig.retryCount}/${this.connectionConfig.maxRetries})`, 'info');
-                        
-                        setTimeout(() => {
-                            if (this.connectionConfig.retryCount <= this.connectionConfig.maxRetries) {
-                                this.initializeWebSocket();
-                            }
-                        }, delay);
-                    } else if (this.connectionConfig.retryCount >= this.connectionConfig.maxRetries) {
-                        this.logMessage('❌ Max reconnection attempts reached. Switching to standalone mode.', 'error');
-                        this.enableStandaloneMode();
-                    }
-                }
+            this.socket.onclose = () => {
+                this.logMessage('Disconnected from test studio server', 'warning');
+                setTimeout(() => this.initializeWebSocket(), 3000);
             };
             
             this.socket.onerror = (error) => {
-                this.logMessage(`❌ WebSocket error: ${error.type || 'Connection failed'}`, 'error');
-                this.updateConnectionStatus('error');
+                this.logMessage('WebSocket error: ' + error.message, 'error');
             };
-
-            // Set connection timeout
-            setTimeout(() => {
-                if (this.socket.readyState === WebSocket.CONNECTING) {
-                    this.socket.close();
-                    this.logMessage('⏱️ Connection timeout. Retrying...', 'warning');
-                }
-            }, 10000);
-
         } catch (error) {
-            this.logMessage(`❌ Failed to initialize WebSocket: ${error.message}`, 'error');
-            this.enableStandaloneMode();
+            this.logMessage('Failed to connect to test server. Running in standalone mode.', 'warning');
         }
-    }
-
-    startHeartbeat() {
-        if (this.connectionConfig.heartbeatTimer) {
-            clearInterval(this.connectionConfig.heartbeatTimer);
-        }
-
-        this.connectionConfig.heartbeatTimer = setInterval(() => {
-            if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-                this.socket.send(JSON.stringify({ type: 'ping', timestamp: Date.now() }));
-                
-                // Check if last heartbeat was too long ago
-                if (this.connectionConfig.lastHeartbeat && 
-                    Date.now() - this.connectionConfig.lastHeartbeat > this.connectionConfig.heartbeatInterval * 2) {
-                    this.logMessage('💓 Heartbeat timeout. Reconnecting...', 'warning');
-                    this.socket.close();
-                }
-            }
-        }, this.connectionConfig.heartbeatInterval);
-    }
-
-    stopHeartbeat() {
-        if (this.connectionConfig.heartbeatTimer) {
-            clearInterval(this.connectionConfig.heartbeatTimer);
-            this.connectionConfig.heartbeatTimer = null;
-        }
-    }
-
-    updateConnectionStatus(status) {
-        const statusBadge = document.getElementById('status-badge');
-        const statusIcon = statusBadge?.querySelector('.status-icon');
-        const statusText = statusBadge?.querySelector('.status-text');
-        
-        if (statusIcon && statusText) {
-            switch (status) {
-                case 'connected':
-                    statusIcon.textContent = '🟢';
-                    statusText.textContent = 'Connected';
-                    statusBadge.className = 'status-badge connected';
-                    break;
-                case 'disconnected':
-                    statusIcon.textContent = '🟡';
-                    statusText.textContent = 'Disconnected';
-                    statusBadge.className = 'status-badge disconnected';
-                    break;
-                case 'error':
-                    statusIcon.textContent = '🔴';
-                    statusText.textContent = 'Error';
-                    statusBadge.className = 'status-badge error';
-                    break;
-                case 'standalone':
-                    statusIcon.textContent = '🔵';
-                    statusText.textContent = 'Standalone';
-                    statusBadge.className = 'status-badge standalone';
-                    break;
-                default:
-                    statusIcon.textContent = '⏸️';
-                    statusText.textContent = 'Ready';
-                    statusBadge.className = 'status-badge';
-            }
-        }
-    }
-
-    isValidMessage(data) {
-        const validTypes = [
-            'test-suite-start', 'test-start', 'test-complete', 'progress', 
-            'log', 'final-report', 'error', 'status-update', 'pong'
-        ];
-        return data && typeof data.type === 'string' && validTypes.includes(data.type);
-    }
-
-    enableStandaloneMode() {
-        this.logMessage('🔵 Standalone mode enabled. Tests will be simulated locally.', 'info');
-        this.updateConnectionStatus('standalone');
-        this.connectionConfig.reconnectOnClose = false;
-        
-        // Update UI to show standalone mode
-        const buttons = document.querySelectorAll('.btn');
-        buttons.forEach(btn => {
-            if (btn.id === 'start-tests' || btn.id === 'stop-tests') {
-                btn.title = btn.title + ' (Standalone Mode)';
-            }
-        });
-    }
-
-    reconnectWebSocket() {
-        this.logMessage('🔄 Manual reconnection initiated...', 'info');
-        this.connectionConfig.retryCount = 0;
-        this.connectionConfig.reconnectOnClose = true;
-        this.initializeWebSocket();
     }
 
     handleSocketMessage(data) {
@@ -602,7 +430,7 @@ class TestStudio {
                 timestamp: new Date().toISOString()
             };
             
-            this.profilesData.set(profileName, profile);
+            this.testProfiles.set(profileName, profile);
             this.saveProfilesToStorage();
             this.updateProfileSelector();
             this.logMessage(`Profile '${profileName}' saved`, 'success');
@@ -612,7 +440,7 @@ class TestStudio {
     loadProfile(profileName) {
         if (!profileName) return;
         
-        const profile = this.profilesData.get(profileName);
+        const profile = this.testProfiles.get(profileName);
         if (profile) {
             // Apply suite selections
             Object.keys(this.testSuites).forEach(suite => {
@@ -630,27 +458,27 @@ class TestStudio {
     loadTestProfiles() {
         const stored = localStorage.getItem('testStudioProfiles');
         if (stored) {
-            this.profilesData = new Map(JSON.parse(stored));
+            this.testProfiles = new Map(JSON.parse(stored));
             this.updateProfileSelector();
         }
     }
 
     saveProfilesToStorage() {
-        localStorage.setItem('testStudioProfiles', JSON.stringify([...this.profilesData]));
+        localStorage.setItem('testStudioProfiles', JSON.stringify([...this.testProfiles]));
     }
 
     updateProfileSelector() {
         // Clear existing options except default
-        const defaultOptions = this.testProfilesSelect.querySelectorAll('option[value=""], option[value="smoke"], option[value="regression"], option[value="critical"]');
-        this.testProfilesSelect.innerHTML = '';
-        defaultOptions.forEach(option => this.testProfilesSelect.appendChild(option));
+        const defaultOptions = this.testProfiles.querySelectorAll('option[value=""], option[value="smoke"], option[value="regression"], option[value="critical"]');
+        this.testProfiles.innerHTML = '';
+        defaultOptions.forEach(option => this.testProfiles.appendChild(option));
         
         // Add custom profiles
-        this.profilesData.forEach((profile, name) => {
+        this.testProfiles.forEach((profile, name) => {
             const option = document.createElement('option');
             option.value = name;
             option.textContent = name;
-            this.testProfilesSelect.appendChild(option);
+            this.testProfiles.appendChild(option);
         });
     }
 
@@ -813,7 +641,7 @@ class TestStudio {
 
     clearResults() {
         this.tests = { total: 0, passed: 0, failed: 0, skipped: 0, current: null };
-        this.testResultsData = []; // Updated reference
+        this.testResults = [];
         this.filteredResults = [];
         
         // Reset UI
@@ -823,7 +651,7 @@ class TestStudio {
         this.finalReport.style.display = 'none';
         
         // Clear test results display
-        this.testResultsDisplay.innerHTML = `
+        this.testResults.innerHTML = `
             <div class="no-tests">
                 <span class="no-tests-icon">🏁</span>
                 <span class="no-tests-text">No tests executed yet</span>
@@ -836,9 +664,9 @@ class TestStudio {
     // Filtering and Search
     filterTestResults(searchTerm) {
         if (!searchTerm.trim()) {
-            this.filteredResults = [...this.testResultsData];
+            this.filteredResults = [...this.testResults];
         } else {
-            this.filteredResults = this.testResultsData.filter(result =>
+            this.filteredResults = this.testResults.filter(result =>
                 result.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 (result.error && result.error.toLowerCase().includes(searchTerm.toLowerCase()))
             );
@@ -848,9 +676,9 @@ class TestStudio {
 
     filterResultsByStatus(status) {
         if (status === 'all') {
-            this.filteredResults = [...this.testResultsData];
+            this.filteredResults = [...this.testResults];
         } else {
-            this.filteredResults = this.testResultsData.filter(result => result.status === status);
+            this.filteredResults = this.testResults.filter(result => result.status === status);
         }
         this.updateTestResultsDisplay();
         
@@ -871,10 +699,10 @@ class TestStudio {
     }
 
     updateTestResultsDisplay() {
-        const results = this.filteredResults.length > 0 ? this.filteredResults : this.testResultsData;
+        const results = this.filteredResults.length > 0 ? this.filteredResults : this.testResults;
         
         if (results.length === 0) {
-            this.testResultsDisplay.innerHTML = `
+            this.testResults.innerHTML = `
                 <div class="no-tests">
                     <span class="no-tests-icon">🏁</span>
                     <span class="no-tests-text">No matching tests found</span>
@@ -883,7 +711,7 @@ class TestStudio {
             return;
         }
         
-        this.testResultsDisplay.innerHTML = results.map(result => this.createTestResultHTML(result)).join('');
+        this.testResults.innerHTML = results.map(result => this.createTestResultHTML(result)).join('');
     }
 
     createTestResultHTML(result) {
@@ -1062,7 +890,7 @@ class TestStudio {
             timestamp: new Date()
         };
         
-        this.testResultsData.push(result);
+        this.testResults.push(result);
         this.filteredResults.push(result);
         
         // Update performance metrics
@@ -1091,8 +919,8 @@ class TestStudio {
 
     addTestResultToUI(data) {
         // Clear "no tests" message if it exists
-        if (this.testResultsDisplay.querySelector('.no-tests')) {
-            this.testResultsDisplay.innerHTML = '';
+        if (this.testResults.querySelector('.no-tests')) {
+            this.testResults.innerHTML = '';
         }
         
         const resultItem = document.createElement('div');
@@ -1109,8 +937,8 @@ class TestStudio {
             <div class="test-result-time">${data.duration}ms</div>
         `;
         
-        this.testResultsDisplay.appendChild(resultItem);
-        this.testResultsDisplay.scrollTop = this.testResultsDisplay.scrollHeight;
+        this.testResults.appendChild(resultItem);
+        this.testResults.scrollTop = this.testResults.scrollHeight;
     }
 
     showFinalReport(data) {
@@ -1121,21 +949,12 @@ class TestStudio {
         this.stopTimer();
         this.currentTest.style.display = 'none';
         
-        // Generate detailed report for history
-        const detailedReport = this.generateDetailedReport();
-        
-        // Save to history
-        this.saveTestRunToHistory(detailedReport);
-        
-        // Update charts with final data
-        this.updateChartsData();
-        
         // Show final report
         this.reportTimestamp.textContent = `Generated on ${new Date().toLocaleString()}`;
         this.reportContent.innerHTML = this.generateReportHTML(data);
         this.finalReport.style.display = 'block';
         
-        this.logMessage('Test execution completed and saved to history', 'success');
+        this.logMessage('Test execution completed', 'success');
     }
 
     generateReportHTML(data) {
@@ -1175,288 +994,17 @@ class TestStudio {
     }
 
     exportReport() {
-        // Show export options modal
-        this.showExportModal();
-    }
-
-    showExportModal() {
-        const modal = document.createElement('div');
-        modal.className = 'export-modal';
-        modal.innerHTML = `
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3>📊 Export Test Report</h3>
-                    <button class="modal-close" onclick="this.parentElement.parentElement.parentElement.remove()">×</button>
-                </div>
-                <div class="modal-body">
-                    <div class="export-options">
-                        <div class="export-format">
-                            <h4>Select Format:</h4>
-                            <div class="format-options">
-                                <label class="format-option">
-                                    <input type="radio" name="format" value="json" checked>
-                                    <span>📄 JSON (Detailed)</span>
-                                </label>
-                                <label class="format-option">
-                                    <input type="radio" name="format" value="csv">
-                                    <span>📊 CSV (Spreadsheet)</span>
-                                </label>
-                                <label class="format-option">
-                                    <input type="radio" name="format" value="html">
-                                    <span>🌐 HTML (Web Report)</span>
-                                </label>
-                                <label class="format-option">
-                                    <input type="radio" name="format" value="txt">
-                                    <span>📝 TXT (Plain Text)</span>
-                                </label>
-                            </div>
-                        </div>
-                        <div class="export-options-section">
-                            <h4>Include:</h4>
-                            <label class="export-checkbox">
-                                <input type="checkbox" id="include-performance" checked>
-                                <span>Performance Metrics</span>
-                            </label>
-                            <label class="export-checkbox">
-                                <input type="checkbox" id="include-logs" checked>
-                                <span>Test Logs</span>
-                            </label>
-                            <label class="export-checkbox">
-                                <input type="checkbox" id="include-environment">
-                                <span>Environment Info</span>
-                            </label>
-                        </div>
-                    </div>
-                    <div class="export-actions">
-                        <button class="btn btn-primary" onclick="testStudio.performExport()">📥 Export</button>
-                        <button class="btn btn-tertiary" onclick="this.parentElement.parentElement.parentElement.remove()">Cancel</button>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        document.body.appendChild(modal);
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) modal.remove();
-        });
-    }
-
-    performExport() {
-        const modal = document.querySelector('.export-modal');
-        const selectedFormat = modal.querySelector('input[name="format"]:checked').value;
-        const includePerformance = modal.querySelector('#include-performance').checked;
-        const includeLogs = modal.querySelector('#include-logs').checked;
-        const includeEnvironment = modal.querySelector('#include-environment').checked;
-
-        const options = {
-            includePerformance,
-            includeLogs,
-            includeEnvironment
-        };
-
-        switch (selectedFormat) {
-            case 'json':
-                this.exportAsJSON(options);
-                break;
-            case 'csv':
-                this.exportAsCSV(options);
-                break;
-            case 'html':
-                this.exportAsHTML(options);
-                break;
-            case 'txt':
-                this.exportAsText(options);
-                break;
-        }
-
-        modal.remove();
-    }
-
-    exportAsJSON(options) {
-        const report = this.generateDetailedReport(options);
+        const report = this.generateDetailedReport();
         const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
-        this.downloadFile(blob, `test-report-${Date.now()}.json`);
-        this.logMessage('JSON report exported', 'success');
-    }
-
-    exportAsCSV(options) {
-        const report = this.generateDetailedReport(options);
-        const csvContent = this.convertToCSV(report);
-        const blob = new Blob([csvContent], { type: 'text/csv' });
-        this.downloadFile(blob, `test-report-${Date.now()}.csv`);
-        this.logMessage('CSV report exported', 'success');
-    }
-
-    exportAsHTML(options) {
-        const report = this.generateDetailedReport(options);
-        const htmlContent = this.convertToHTML(report);
-        const blob = new Blob([htmlContent], { type: 'text/html' });
-        this.downloadFile(blob, `test-report-${Date.now()}.html`);
-        this.logMessage('HTML report exported', 'success');
-    }
-
-    exportAsText(options) {
-        const report = this.generateDetailedReport(options);
-        const textContent = this.convertToText(report);
-        const blob = new Blob([textContent], { type: 'text/plain' });
-        this.downloadFile(blob, `test-report-${Date.now()}.txt`);
-        this.logMessage('Text report exported', 'success');
-    }
-
-    convertToCSV(report) {
-        const headers = ['Test Name', 'Suite', 'Status', 'Duration (ms)', 'Error'];
-        const rows = [headers];
-
-        if (report.results) {
-            report.results.forEach(result => {
-                rows.push([
-                    result.name || 'Unknown',
-                    result.suite || 'Unknown',
-                    result.status || 'Unknown',
-                    result.duration || 0,
-                    result.error || ''
-                ]);
-            });
-        }
-
-        return rows.map(row => 
-            row.map(cell => `"${String(cell).replace(/"/g, '""')}"`)
-               .join(',')
-        ).join('\n');
-    }
-
-    convertToHTML(report) {
-        const successRate = report.summary?.successRate || 0;
-        const statusClass = successRate >= 80 ? 'success' : successRate >= 60 ? 'warning' : 'error';
-
-        return `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Test Report - ${new Date(report.timestamp).toLocaleString()}</title>
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 20px; background: #f5f5f5; }
-        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .header { text-align: center; margin-bottom: 30px; }
-        .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
-        .stat-card { background: #f8f9fa; padding: 20px; border-radius: 6px; text-align: center; }
-        .stat-number { font-size: 2em; font-weight: bold; margin-bottom: 5px; }
-        .stat-label { color: #666; text-transform: uppercase; font-size: 0.9em; }
-        .success { color: #28a745; }
-        .warning { color: #ffc107; }
-        .error { color: #dc3545; }
-        .results-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        .results-table th, .results-table td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
-        .results-table th { background: #f8f9fa; font-weight: 600; }
-        .status-passed { color: #28a745; font-weight: bold; }
-        .status-failed { color: #dc3545; font-weight: bold; }
-        .duration { font-family: monospace; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>🧪 Test Execution Report</h1>
-            <p>Generated on ${new Date(report.timestamp).toLocaleString()}</p>
-            <p>Duration: ${this.formatDuration(report.duration)}</p>
-        </div>
-        
-        <div class="summary">
-            <div class="stat-card">
-                <div class="stat-number">${report.summary?.total || 0}</div>
-                <div class="stat-label">Total Tests</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number success">${report.summary?.passed || 0}</div>
-                <div class="stat-label">Passed</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number error">${report.summary?.failed || 0}</div>
-                <div class="stat-label">Failed</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number">${report.summary?.skipped || 0}</div>
-                <div class="stat-label">Skipped</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number ${statusClass}">${successRate.toFixed(1)}%</div>
-                <div class="stat-label">Success Rate</div>
-            </div>
-        </div>
-
-        ${report.results && report.results.length > 0 ? `
-        <h2>Test Results</h2>
-        <table class="results-table">
-            <thead>
-                <tr>
-                    <th>Test Name</th>
-                    <th>Status</th>
-                    <th>Duration</th>
-                    <th>Error</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${report.results.map(result => `
-                    <tr>
-                        <td>${result.name || 'Unknown'}</td>
-                        <td class="status-${result.status}">${result.status || 'Unknown'}</td>
-                        <td class="duration">${this.formatDuration(result.duration || 0)}</td>
-                        <td>${result.error || '-'}</td>
-                    </tr>
-                `).join('')}
-            </tbody>
-        </table>
-        ` : ''}
-        
-        <footer style="margin-top: 40px; text-align: center; color: #666; font-size: 0.9em;">
-            <p>Generated by Lucaverse Test Studio</p>
-        </footer>
-    </div>
-</body>
-</html>`;
-    }
-
-    convertToText(report) {
-        let text = '';
-        text += '🧪 LUCAVERSE TEST STUDIO REPORT\n';
-        text += '================================\n\n';
-        text += `Generated: ${new Date(report.timestamp).toLocaleString()}\n`;
-        text += `Duration: ${this.formatDuration(report.duration)}\n\n`;
-        
-        text += 'SUMMARY\n';
-        text += '-------\n';
-        text += `Total Tests: ${report.summary?.total || 0}\n`;
-        text += `Passed: ${report.summary?.passed || 0}\n`;
-        text += `Failed: ${report.summary?.failed || 0}\n`;
-        text += `Skipped: ${report.summary?.skipped || 0}\n`;
-        text += `Success Rate: ${(report.summary?.successRate || 0).toFixed(1)}%\n\n`;
-
-        if (report.results && report.results.length > 0) {
-            text += 'DETAILED RESULTS\n';
-            text += '----------------\n';
-            report.results.forEach((result, index) => {
-                text += `${(index + 1).toString().padStart(3)}: `;
-                text += `${result.status?.toUpperCase().padEnd(8)} `;
-                text += `${result.name || 'Unknown'} `;
-                text += `(${this.formatDuration(result.duration || 0)})\n`;
-                if (result.error) {
-                    text += `     Error: ${result.error}\n`;
-                }
-            });
-        }
-
-        return text;
-    }
-
-    downloadFile(blob, filename) {
         const url = URL.createObjectURL(blob);
+        
         const a = document.createElement('a');
         a.href = url;
-        a.download = filename;
+        a.download = `test-report-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
         a.click();
+        
         URL.revokeObjectURL(url);
+        this.logMessage('Test report exported', 'success');
     }
 
     generateDetailedReport() {
@@ -1470,7 +1018,7 @@ class TestStudio {
                 skipped: this.tests.skipped,
                 successRate: this.tests.total > 0 ? (this.tests.passed / this.tests.total) * 100 : 0
             },
-            results: this.testResultsData,
+            results: this.testResults,
             performance: {
                 avgSpeed: this.calculateAverage(this.performanceMetrics.speed),
                 peakMemory: Math.max(...this.performanceMetrics.memory, 0),
@@ -1485,198 +1033,16 @@ class TestStudio {
     }
 
     updateAnalytics() {
-        // Initialize charts with Chart.js
-        this.initializeCharts();
-    }
-
-    initializeCharts() {
-        // Suite Distribution Chart (Pie Chart)
-        const suiteDistributionCtx = document.getElementById('suite-distribution-chart');
-        if (suiteDistributionCtx && !suiteDistributionCtx.chart) {
-            suiteDistributionCtx.chart = new Chart(suiteDistributionCtx, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Unit Tests', 'GUI Tests', 'Integration', 'OAuth Tests'],
-                    datasets: [{
-                        data: [this.getSuiteTestCount('unit'), this.getSuiteTestCount('gui'), 
-                               this.getSuiteTestCount('integration'), this.getSuiteTestCount('oauth')],
-                        backgroundColor: ['#34d399', '#60a5fa', '#a78bfa', '#f87171'],
-                        borderColor: ['#10b981', '#3b82f6', '#8b5cf6', '#ef4444'],
-                        borderWidth: 2
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                            labels: { color: '#e2e8f0', usePointStyle: true }
-                        }
-                    }
-                }
-            });
-        }
-
-        // Performance Trends Chart (Line Chart)
-        const performanceTrendCtx = document.getElementById('performance-trend-chart');
-        if (performanceTrendCtx && !performanceTrendCtx.chart) {
-            performanceTrendCtx.chart = new Chart(performanceTrendCtx, {
-                type: 'line',
-                data: {
-                    labels: this.performanceMetrics.timestamps.slice(-10),
-                    datasets: [{
-                        label: 'Avg Speed (ms)',
-                        data: this.performanceMetrics.speed.slice(-10),
-                        borderColor: '#60a5fa',
-                        backgroundColor: 'rgba(96, 165, 250, 0.1)',
-                        tension: 0.4
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(148, 163, 184, 0.2)' } },
-                        x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(148, 163, 184, 0.2)' } }
-                    },
-                    plugins: {
-                        legend: { labels: { color: '#e2e8f0' } }
-                    }
-                }
-            });
-        }
-
-        // Success Rate Chart (Bar Chart)
-        const successRateCtx = document.getElementById('success-rate-chart');
-        if (successRateCtx && !successRateCtx.chart) {
-            const successRate = this.tests.total > 0 ? (this.tests.passed / this.tests.total) * 100 : 0;
-            successRateCtx.chart = new Chart(successRateCtx, {
-                type: 'bar',
-                data: {
-                    labels: ['Current Run'],
-                    datasets: [{
-                        label: 'Success Rate (%)',
-                        data: [successRate],
-                        backgroundColor: successRate > 80 ? '#10b981' : successRate > 60 ? '#f59e0b' : '#ef4444',
-                        borderColor: successRate > 80 ? '#059669' : successRate > 60 ? '#d97706' : '#dc2626',
-                        borderWidth: 2
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: { 
-                            beginAtZero: true, 
-                            max: 100,
-                            ticks: { color: '#94a3b8' }, 
-                            grid: { color: 'rgba(148, 163, 184, 0.2)' } 
-                        },
-                        x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(148, 163, 184, 0.2)' } }
-                    },
-                    plugins: {
-                        legend: { labels: { color: '#e2e8f0' } }
-                    }
-                }
-            });
-        }
-
-        // Speed Distribution Chart (Histogram)
-        const speedDistributionCtx = document.getElementById('speed-distribution-chart');
-        if (speedDistributionCtx && !speedDistributionCtx.chart) {
-            const speedRanges = this.getSpeedDistribution();
-            speedDistributionCtx.chart = new Chart(speedDistributionCtx, {
-                type: 'bar',
-                data: {
-                    labels: ['0-1s', '1-3s', '3-5s', '5s+'],
-                    datasets: [{
-                        label: 'Test Count',
-                        data: speedRanges,
-                        backgroundColor: '#a78bfa',
-                        borderColor: '#8b5cf6',
-                        borderWidth: 2
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: { 
-                            beginAtZero: true,
-                            ticks: { color: '#94a3b8' }, 
-                            grid: { color: 'rgba(148, 163, 184, 0.2)' } 
-                        },
-                        x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(148, 163, 184, 0.2)' } }
-                    },
-                    plugins: {
-                        legend: { labels: { color: '#e2e8f0' } }
-                    }
-                }
-            });
-        }
-    }
-
-    getSuiteTestCount(suite) {
-        const suiteCheckbox = this.testSuites[suite];
-        if (!suiteCheckbox) return 0;
-        
-        const testCounts = { unit: 15, gui: 40, integration: 12, oauth: 25 };
-        return testCounts[suite] || 0;
-    }
-
-    getSpeedDistribution() {
-        const ranges = [0, 0, 0, 0]; // 0-1s, 1-3s, 3-5s, 5s+
-        this.testResultsData.forEach(result => {
-            if (result.duration < 1000) ranges[0]++;
-            else if (result.duration < 3000) ranges[1]++;
-            else if (result.duration < 5000) ranges[2]++;
-            else ranges[3]++;
+        // Placeholder for analytics charts
+        // In a real implementation, this would use Chart.js or similar
+        const charts = document.querySelectorAll('.chart-container canvas');
+        charts.forEach(canvas => {
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = 'var(--text-muted)';
+            ctx.font = '14px system-ui';
+            ctx.textAlign = 'center';
+            ctx.fillText('Chart placeholder', canvas.width / 2, canvas.height / 2);
         });
-        return ranges;
-    }
-
-    updateChartsData() {
-        // Update existing charts with new data
-        const charts = [
-            { id: 'suite-distribution-chart', updateFn: this.updateSuiteDistributionChart.bind(this) },
-            { id: 'performance-trend-chart', updateFn: this.updatePerformanceTrendChart.bind(this) },
-            { id: 'success-rate-chart', updateFn: this.updateSuccessRateChart.bind(this) },
-            { id: 'speed-distribution-chart', updateFn: this.updateSpeedDistributionChart.bind(this) }
-        ];
-
-        charts.forEach(({ id, updateFn }) => {
-            const canvas = document.getElementById(id);
-            if (canvas && canvas.chart) {
-                updateFn(canvas.chart);
-            }
-        });
-    }
-
-    updateSuiteDistributionChart(chart) {
-        chart.data.datasets[0].data = [
-            this.getSuiteTestCount('unit'), this.getSuiteTestCount('gui'),
-            this.getSuiteTestCount('integration'), this.getSuiteTestCount('oauth')
-        ];
-        chart.update();
-    }
-
-    updatePerformanceTrendChart(chart) {
-        chart.data.labels = this.performanceMetrics.timestamps.slice(-10);
-        chart.data.datasets[0].data = this.performanceMetrics.speed.slice(-10);
-        chart.update();
-    }
-
-    updateSuccessRateChart(chart) {
-        const successRate = this.tests.total > 0 ? (this.tests.passed / this.tests.total) * 100 : 0;
-        chart.data.datasets[0].data = [successRate];
-        chart.data.datasets[0].backgroundColor = successRate > 80 ? '#10b981' : successRate > 60 ? '#f59e0b' : '#ef4444';
-        chart.update();
-    }
-
-    updateSpeedDistributionChart(chart) {
-        chart.data.datasets[0].data = this.getSpeedDistribution();
-        chart.update();
     }
 
     toggleShortcutsHelp() {
@@ -1686,247 +1052,6 @@ class TestStudio {
 
     closeModals() {
         this.shortcutsHelp.style.display = 'none';
-    }
-
-    // History Management
-    loadTestHistory() {
-        const dateFrom = document.getElementById('date-from').value;
-        const dateTo = document.getElementById('date-to').value;
-        
-        if (!dateFrom || !dateTo) {
-            this.logMessage('Please select both start and end dates', 'warning');
-            return;
-        }
-
-        this.logMessage(`Loading test history from ${dateFrom} to ${dateTo}...`, 'info');
-        
-        // Load history from localStorage and reports directory
-        const history = this.getTestHistoryData(dateFrom, dateTo);
-        this.displayTestHistory(history);
-    }
-
-    getTestHistoryData(dateFrom, dateTo) {
-        const fromDate = new Date(dateFrom);
-        const toDate = new Date(dateTo);
-        toDate.setHours(23, 59, 59, 999); // Include full end date
-        
-        // Get stored history from localStorage
-        const storedHistory = JSON.parse(localStorage.getItem('testStudioHistory') || '[]');
-        
-        // Filter by date range
-        const filteredHistory = storedHistory.filter(entry => {
-            const entryDate = new Date(entry.timestamp);
-            return entryDate >= fromDate && entryDate <= toDate;
-        });
-
-        // Sort by date (newest first)
-        return filteredHistory.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-    }
-
-    displayTestHistory(history) {
-        const historyList = document.getElementById('history-list');
-        
-        if (history.length === 0) {
-            historyList.innerHTML = `
-                <div class="history-empty">
-                    <span class="empty-icon">📅</span>
-                    <span class="empty-text">No test history found for selected date range</span>
-                </div>
-            `;
-            return;
-        }
-
-        const historyHTML = history.map(entry => `
-            <div class="history-item" data-id="${entry.id}">
-                <div class="history-header">
-                    <div class="history-timestamp">${this.formatTimestamp(entry.timestamp)}</div>
-                    <div class="history-duration">${this.formatDuration(entry.duration)}</div>
-                </div>
-                <div class="history-summary">
-                    <div class="history-stats">
-                        <span class="stat passed">${entry.summary.passed} passed</span>
-                        <span class="stat failed">${entry.summary.failed} failed</span>
-                        <span class="stat total">${entry.summary.total} total</span>
-                    </div>
-                    <div class="history-success-rate ${this.getSuccessRateClass(entry.summary.successRate)}">
-                        ${entry.summary.successRate.toFixed(1)}%
-                    </div>
-                </div>
-                <div class="history-suites">
-                    ${entry.suites.map(suite => `<span class="suite-tag">${suite}</span>`).join('')}
-                </div>
-                <div class="history-actions">
-                    <button class="btn btn-small" onclick="testStudio.viewHistoryDetails('${entry.id}')">📊 Details</button>
-                    <button class="btn btn-small" onclick="testStudio.compareWithCurrent('${entry.id}')">🔄 Compare</button>
-                </div>
-            </div>
-        `).join('');
-
-        historyList.innerHTML = historyHTML;
-        this.logMessage(`Loaded ${history.length} test history entries`, 'success');
-    }
-
-    formatTimestamp(timestamp) {
-        return new Date(timestamp).toLocaleString();
-    }
-
-    getSuccessRateClass(successRate) {
-        if (successRate >= 90) return 'excellent';
-        if (successRate >= 75) return 'good';
-        if (successRate >= 50) return 'average';
-        return 'poor';
-    }
-
-    viewHistoryDetails(historyId) {
-        const storedHistory = JSON.parse(localStorage.getItem('testStudioHistory') || '[]');
-        const entry = storedHistory.find(h => h.id === historyId);
-        
-        if (!entry) {
-            this.logMessage('History entry not found', 'error');
-            return;
-        }
-
-        // Show detailed modal or populate existing report area
-        this.showHistoryDetailModal(entry);
-    }
-
-    showHistoryDetailModal(entry) {
-        // Create a modal to show detailed history
-        const modal = document.createElement('div');
-        modal.className = 'history-detail-modal';
-        modal.innerHTML = `
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3>📊 Test Run Details</h3>
-                    <button class="modal-close" onclick="this.parentElement.parentElement.parentElement.remove()">×</button>
-                </div>
-                <div class="modal-body">
-                    <div class="detail-section">
-                        <h4>Summary</h4>
-                        <div class="detail-grid">
-                            <div class="detail-item">
-                                <label>Timestamp:</label>
-                                <span>${this.formatTimestamp(entry.timestamp)}</span>
-                            </div>
-                            <div class="detail-item">
-                                <label>Duration:</label>
-                                <span>${this.formatDuration(entry.duration)}</span>
-                            </div>
-                            <div class="detail-item">
-                                <label>Success Rate:</label>
-                                <span class="${this.getSuccessRateClass(entry.summary.successRate)}">${entry.summary.successRate.toFixed(1)}%</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="detail-section">
-                        <h4>Test Results</h4>
-                        <div class="results-summary">
-                            <div class="result-stat passed">✅ ${entry.summary.passed} Passed</div>
-                            <div class="result-stat failed">❌ ${entry.summary.failed} Failed</div>
-                            <div class="result-stat skipped">⏭️ ${entry.summary.skipped || 0} Skipped</div>
-                        </div>
-                    </div>
-                    <div class="detail-section">
-                        <h4>Test Suites</h4>
-                        <div class="suites-list">
-                            ${entry.suites.map(suite => `<span class="suite-tag">${suite}</span>`).join('')}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        document.body.appendChild(modal);
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) modal.remove();
-        });
-    }
-
-    compareTestRuns() {
-        this.logMessage('Test run comparison feature - comparing current with previous runs', 'info');
-        
-        const storedHistory = JSON.parse(localStorage.getItem('testStudioHistory') || '[]');
-        if (storedHistory.length === 0) {
-            this.logMessage('No previous test runs found for comparison', 'warning');
-            return;
-        }
-
-        // Get the most recent run for comparison
-        const latestRun = storedHistory[0];
-        const currentRun = {
-            timestamp: new Date().toISOString(),
-            summary: {
-                total: this.tests.total,
-                passed: this.tests.passed,
-                failed: this.tests.failed,
-                skipped: this.tests.skipped,
-                successRate: this.tests.total > 0 ? (this.tests.passed / this.tests.total) * 100 : 0
-            }
-        };
-
-        this.showComparisonResults(currentRun, latestRun);
-    }
-
-    showComparisonResults(current, previous) {
-        const successRateDiff = current.summary.successRate - previous.summary.successRate;
-        const totalDiff = current.summary.total - previous.summary.total;
-        
-        this.logMessage(`Comparison Results:
-            Current: ${current.summary.passed}/${current.summary.total} (${current.summary.successRate.toFixed(1)}%)
-            Previous: ${previous.summary.passed}/${previous.summary.total} (${previous.summary.successRate.toFixed(1)}%)
-            Success Rate Change: ${successRateDiff >= 0 ? '+' : ''}${successRateDiff.toFixed(1)}%
-            Test Count Change: ${totalDiff >= 0 ? '+' : ''}${totalDiff}`, 'info');
-    }
-
-    compareWithCurrent(historyId) {
-        const storedHistory = JSON.parse(localStorage.getItem('testStudioHistory') || '[]');
-        const previousRun = storedHistory.find(h => h.id === historyId);
-        
-        if (!previousRun) {
-            this.logMessage('History entry not found', 'error');
-            return;
-        }
-
-        const currentRun = {
-            timestamp: new Date().toISOString(),
-            summary: {
-                total: this.tests.total,
-                passed: this.tests.passed,
-                failed: this.tests.failed,
-                skipped: this.tests.skipped,
-                successRate: this.tests.total > 0 ? (this.tests.passed / this.tests.total) * 100 : 0
-            }
-        };
-
-        this.showComparisonResults(currentRun, previousRun);
-    }
-
-    saveTestRunToHistory(report) {
-        const historyEntry = {
-            id: Date.now().toString(),
-            timestamp: report.timestamp,
-            duration: report.duration,
-            summary: report.summary,
-            suites: Object.keys(this.testSuites).filter(suite => this.testSuites[suite].checked),
-            results: report.results || []
-        };
-
-        // Get existing history
-        const storedHistory = JSON.parse(localStorage.getItem('testStudioHistory') || '[]');
-        
-        // Add new entry at the beginning
-        storedHistory.unshift(historyEntry);
-        
-        // Keep only last 50 entries to prevent storage bloat
-        const maxHistoryEntries = 50;
-        if (storedHistory.length > maxHistoryEntries) {
-            storedHistory.splice(maxHistoryEntries);
-        }
-
-        // Save back to localStorage
-        localStorage.setItem('testStudioHistory', JSON.stringify(storedHistory));
-        
-        this.logMessage('Test run saved to history', 'success');
     }
 
     // Simulate test run for standalone mode
@@ -1979,6 +1104,9 @@ class TestStudio {
      * Initialize Chromium integration features
      */
     initializeChromiumIntegration() {
+        // Initialize Chrome status display
+        this.initializeChromeStatusDisplay();
+        
         // Check Chromium status on startup
         this.checkChromiumStatus();
         
@@ -1987,7 +1115,7 @@ class TestStudio {
             this.checkChromiumStatus();
         }, 10000); // Check every 10 seconds
         
-        this.logMessage('🟦 Chromium integration initialized', 'info');
+        this.logMessage('🟦 Chrome integration initialized', 'info');
     }
 
     /**
@@ -2028,68 +1156,27 @@ class TestStudio {
      * Update Chromium status in the UI
      */
     updateChromiumStatusUI(isRunning, chromiumInfo = null) {
-        // Find or create Chromium status indicator
-        let chromiumIndicator = document.getElementById('chromium-status');
-        if (!chromiumIndicator) {
-            chromiumIndicator = this.createChromiumStatusIndicator();
-        }
+        if (!this.chromeStatusIndicator) return;
 
         if (isRunning) {
-            chromiumIndicator.className = 'chromium-status connected';
-            chromiumIndicator.innerHTML = `
-                <div class="chromium-icon">🟦</div>
-                <div class="chromium-details">
-                    <div class="chromium-label">Chromium Connected</div>
-                    <div class="chromium-version">${chromiumInfo?.Browser || 'Unknown Version'}</div>
-                    <div class="chromium-tabs">${this.chromiumStatus.testTabsCount} tabs open</div>
-                    <div class="chromium-profile">Profile 7 (Windsurf)</div>
-                </div>
-            `;
-            chromiumIndicator.title = `Chromium running on port ${this.chromiumStatus.debugPort}`;
+            this.chromeStatusIndicator.className = 'chrome-status-indicator';
+            this.chromeStatusText.textContent = 'Connected';
+            this.chromeTabsCount.textContent = `${this.chromiumStatus.testTabsCount} tabs`;
+            this.chromeStatusIndicator.title = `Chrome running on port ${this.chromiumStatus.debugPort}`;
         } else {
-            chromiumIndicator.className = 'chromium-status disconnected';
-            chromiumIndicator.innerHTML = `
-                <div class="chromium-icon">🟦</div>
-                <div class="chromium-details">
-                    <div class="chromium-label">Chromium Disconnected</div>
-                    <div class="chromium-message">Launch via studio for integration</div>
-                </div>
-            `;
-            chromiumIndicator.title = 'Chromium not detected or remote debugging disabled';
+            this.chromeStatusIndicator.className = 'chrome-status-indicator disconnected';
+            this.chromeStatusText.textContent = 'Disconnected';
+            this.chromeTabsCount.textContent = '0 tabs';
+            this.chromeStatusIndicator.title = 'Chrome not detected or remote debugging disabled';
         }
     }
 
     /**
-     * Create Chromium status indicator in the sidebar
+     * Initialize Chrome status display
      */
-    createChromiumStatusIndicator() {
-        const sidebar = document.querySelector('.studio-sidebar');
-        const chromiumSection = document.createElement('section');
-        chromiumSection.className = 'sidebar-section chromium-section';
-        chromiumSection.innerHTML = `
-            <h3>🟦 Chromium Integration</h3>
-            <div id="chromium-status" class="chromium-status">
-                <!-- Status will be populated by updateChromiumStatusUI -->
-            </div>
-            <div class="chromium-actions">
-                <button class="btn btn-tertiary btn-small" onclick="testStudio.requestChromiumLaunch()">
-                    Launch Chromium
-                </button>
-                <button class="btn btn-tertiary btn-small" onclick="testStudio.showChromiumDiagnostics()">
-                    Diagnostics
-                </button>
-            </div>
-        `;
-        
-        // Insert after performance metrics section
-        const metricsSection = sidebar.querySelector('.metrics-section');
-        if (metricsSection) {
-            metricsSection.insertAdjacentElement('afterend', chromiumSection);
-        } else {
-            sidebar.appendChild(chromiumSection);
-        }
-        
-        return document.getElementById('chromium-status');
+    initializeChromeStatusDisplay() {
+        // Set initial disconnected state
+        this.updateChromiumStatusUI(false);
     }
 
     /**

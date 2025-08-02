@@ -4,8 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>🧪 Lucaverse Test Studio</title>
-    <link rel="stylesheet" href="test-runner-styles.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <!-- Main Layout Container -->
@@ -184,6 +183,16 @@
                     <div class="stat-card">
                         <div class="stat-number" id="skipped-tests">0</div>
                         <div class="stat-label">Skipped</div>
+                    </div>
+                </div>
+                
+                <!-- Chrome Debugger Status -->
+                <div class="chrome-status-indicator" id="chrome-status-indicator">
+                    <div class="chrome-icon">🟦</div>
+                    <div class="chrome-info">
+                        <span class="chrome-label">Chrome</span>
+                        <span class="chrome-status" id="chrome-status-text">Connecting...</span>
+                        <span class="chrome-tabs" id="chrome-tabs-count">0 tabs</span>
                     </div>
                 </div>
                 
@@ -381,14 +390,6 @@
         </div>
     </div>
 
-    <script src="test-runner-script.js"></script>
-    <script>
-        // Initialize global test studio instance
-        let testStudio;
-        document.addEventListener('DOMContentLoaded', () => {
-            testStudio = new TestStudio();
-            window.testStudio = testStudio; // Make globally accessible
-        });
-    </script>
+    <script src="studio.js"></script>
 </body>
 </html>
