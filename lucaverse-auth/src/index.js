@@ -34,6 +34,8 @@ export default {
       'Access-Control-Allow-Headers': 'Content-Type, Authorization',
       'Access-Control-Allow-Credentials': 'true', // Enable credentials for secure sessions
       'Access-Control-Max-Age': '86400',
+      'Cross-Origin-Opener-Policy': 'same-origin-allow-popups', // Allow OAuth popups
+      'Cross-Origin-Embedder-Policy': 'unsafe-none', // Required for COOP compatibility
     };
 
     if (request.method === 'OPTIONS') {
@@ -408,6 +410,11 @@ function generateSessionToken() {
 
 // SECURITY: Timing-safe string comparison to prevent timing attacks
 function timingSafeEqual(a, b) {
+  // SECURITY: Add null/undefined safety checks
+  if (!a || !b || typeof a !== 'string' || typeof b !== 'string') {
+    return false;
+  }
+  
   if (a.length !== b.length) {
     return false;
   }
