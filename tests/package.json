@@ -40,8 +40,8 @@
       "<rootDir>/setup/jest.setup.js"
     ],
     "moduleNameMapper": {
-      "^.+\\.module\\.(css|less|scss|sass)$": "identity-obj-proxy",
-      "^.+\\.(css|less|scss|sass)$": "identity-obj-proxy",
+      "\\.module\\.(css|less|scss|sass)$": "identity-obj-proxy",
+      "\\.(css|less|scss|sass)$": "identity-obj-proxy",
       "^@/(.*)$": "<rootDir>/../src/$1",
       "^../../src/(.*)$": "<rootDir>/../src/$1",
       "^../../../src/(.*)$": "<rootDir>/../src/$1"

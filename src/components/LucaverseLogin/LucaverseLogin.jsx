@@ -76,27 +76,12 @@ const LucaverseLogin = () => {
         window.removeEventListener('message', messageHandler);
         
         // Wait for popup to fully close before redirecting to dashboard
-        const checkPopupClosed = () => {
-          try {
-            // Check if popup still exists and is closed
-            if (!popup || popup.closed) {
-              setIsLoading(false);
-              window.location.hash = 'dashboard';
-            } else {
-              // If popup still open, check again in 100ms
-              setTimeout(checkPopupClosed, 100);
-            }
-          } catch (error) {
-            // If we can't access popup properties (COOP), assume it's closed after reasonable delay
-            setTimeout(() => {
-              setIsLoading(false);
-              window.location.hash = 'dashboard';
-            }, 500);
-          }
-        };
-        
-        // Start checking after initial delay to allow popup self-close to begin
-        setTimeout(checkPopupClosed, 1000);
+        // DO NOT access popup.closed property to avoid COOP violations
+        // Use fixed delay that's longer than popup self-close timeout (2000ms + buffer)
+        setTimeout(() => {
+          setIsLoading(false);
+          window.location.hash = 'dashboard';
+        }, 2500);
         
       } else if (event.data.type === 'OAUTH_ERROR') {
         // Handle authentication error
@@ -109,27 +94,12 @@ const LucaverseLogin = () => {
         window.removeEventListener('message', messageHandler);
         
         // Wait for popup to fully close before showing error
-        const checkPopupClosedError = () => {
-          try {
-            // Check if popup still exists and is closed
-            if (!popup || popup.closed) {
-              setIsLoading(false);
-              alert('Authentication failed. Please try again.');
-            } else {
-              // If popup still open, check again in 100ms
-              setTimeout(checkPopupClosedError, 100);
-            }
-          } catch (error) {
-            // If we can't access popup properties (COOP), assume it's closed after reasonable delay
-            setTimeout(() => {
-              setIsLoading(false);
-              alert('Authentication failed. Please try again.');
-            }, 500);
-          }
-        };
-        
-        // Start checking after initial delay to allow popup self-close to begin
-        setTimeout(checkPopupClosedError, 1000);
+        // DO NOT access popup.closed property to avoid COOP violations
+        // Use fixed delay that's longer than popup self-close timeout (2000ms + buffer)
+        setTimeout(() => {
+          setIsLoading(false);
+          alert('Authentication failed. Please try again.');
+        }, 2500);
       }
     };
 
