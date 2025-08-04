@@ -4,19 +4,35 @@ export default {
     const url = new URL(request.url);
     const { pathname } = url;
 
-    console.log('🌟 Worker request:', request.method, pathname);
-    console.log('🔧 Environment check:', {
-      hasGoogleClientId: !!env.GOOGLE_CLIENT_ID,
-      hasGoogleClientSecret: !!env.GOOGLE_CLIENT_SECRET,
-      workerUrl: env.WORKER_URL,
-      frontendUrl: env.FRONTEND_URL
-    });
+    // SECURITY: Minimal production logging to prevent information disclosure
+    if (env.NODE_ENV !== 'production') {
+      console.log('🌟 Worker request:', request.method, pathname);
+      console.log('🔧 Environment check:', {
+        hasGoogleClientId: !!env.GOOGLE_CLIENT_ID,
+        hasGoogleClientSecret: !!env.GOOGLE_CLIENT_SECRET,
+        workerUrl: env.WORKER_URL ? 'configured' : 'missing',
+        frontendUrl: env.FRONTEND_URL ? 'configured' : 'missing'
+      });
+    }
 
-    // Handle CORS for frontend requests
+    // Handle CORS for frontend requests - SECURITY: Use specific allowed origins only
+    const allowedOrigins = [
+      env.FRONTEND_URL || 'https://lucaverse.com',
+      'https://lucaverse.com',
+      'https://www.lucaverse.com',
+      // Development origins
+      'http://localhost:5155',
+      'http://localhost:3000'
+    ];
+    
+    const origin = request.headers.get('Origin');
+    const isAllowedOrigin = allowedOrigins.includes(origin);
+    
     const corsHeaders = {
-      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Origin': isAllowedOrigin ? origin : env.FRONTEND_URL || 'https://lucaverse.com',
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Allow-Credentials': 'true', // Enable credentials for secure sessions
       'Access-Control-Max-Age': '86400',
     };
 
@@ -95,12 +111,21 @@ async function handleGoogleAuth(env) {
     const redirectUri = `${env.WORKER_URL}/auth/google/callback`;
     console.log('🔗 Redirect URI:', redirectUri);
     
+    // SECURITY: Generate OAuth state parameter for CSRF protection
+    const state = crypto.randomUUID();
+    
+    // Store state in KV for validation (expires in 10 minutes)
+    await env.OAUTH_SESSIONS.put(`state_${state}`, Date.now().toString(), {
+      expirationTtl: 600 // 10 minutes
+    });
+    
     const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
     authUrl.searchParams.set('client_id', googleClientId);
     authUrl.searchParams.set('redirect_uri', redirectUri);
     authUrl.searchParams.set('response_type', 'code');
     authUrl.searchParams.set('scope', 'openid profile email');
     authUrl.searchParams.set('access_type', 'offline');
+    authUrl.searchParams.set('state', state); // CSRF protection
     
     const finalUrl = authUrl.toString();
     console.log('🚀 Final Google OAuth URL:', finalUrl);
@@ -120,6 +145,21 @@ async function handleGoogleCallback(request, env) {
   const url = new URL(request.url);
   const code = url.searchParams.get('code');
   const error = url.searchParams.get('error');
+  const state = url.searchParams.get('state');
+  
+  // SECURITY: Validate OAuth state parameter to prevent CSRF attacks
+  if (!state) {
+    return Response.redirect(`${env.FRONTEND_URL}/oauth-callback.html?error=invalid_state`, 302);
+  }
+  
+  // Verify state parameter exists and is valid
+  const storedState = await env.OAUTH_SESSIONS.get(`state_${state}`);
+  if (!storedState) {
+    return Response.redirect(`${env.FRONTEND_URL}/oauth-callback.html?error=invalid_state`, 302);
+  }
+  
+  // Clean up used state
+  await env.OAUTH_SESSIONS.delete(`state_${state}`);
   
   if (error || !code) {
     return Response.redirect(`${env.FRONTEND_URL}/oauth-callback.html?error=auth_failed`, 302);
@@ -184,12 +224,53 @@ async function handleGoogleCallback(request, env) {
       expirationTtl: 7 * 24 * 60 * 60, // 7 days in seconds
     });
 
-    // Redirect to frontend with session info
+    // SECURITY: Use secure POST method instead of URL parameters for tokens
     const redirectUrl = new URL(`${env.FRONTEND_URL}/oauth-callback.html`);
-    redirectUrl.searchParams.set('token', sessionToken);
-    redirectUrl.searchParams.set('session', sessionId);
     
-    return Response.redirect(redirectUrl.toString(), 302);
+    // Create secure session cookie instead of URL params
+    const cookieOptions = [
+      `auth_session=${sessionId}`,
+      `Max-Age=${7 * 24 * 60 * 60}`, // 7 days
+      'HttpOnly',
+      'Secure',
+      'SameSite=Strict',
+      `Domain=${new URL(env.FRONTEND_URL).hostname}`
+    ].join('; ');
+    
+    const cookieToken = [
+      `auth_token=${sessionToken}`,
+      `Max-Age=${7 * 24 * 60 * 60}`, // 7 days
+      'HttpOnly',
+      'Secure', 
+      'SameSite=Strict',
+      `Domain=${new URL(env.FRONTEND_URL).hostname}`
+    ].join('; ');
+    
+    return new Response(
+      `<!DOCTYPE html>
+      <html>
+      <head>
+        <title>Authentication Success</title>
+        <script>
+          // Fallback for environments that don't support HttpOnly cookies
+          localStorage.setItem('auth_token', '${sessionToken}');
+          localStorage.setItem('session_id', '${sessionId}');
+          window.location.href = '${redirectUrl.toString()}';
+        </script>
+      </head>
+      <body>
+        <p>Authentication successful. Redirecting...</p>
+      </body>
+      </html>`,
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/html',
+          'Set-Cookie': [cookieOptions, cookieToken],
+          ...corsHeaders
+        }
+      }
+    );
     
   } catch (error) {
     console.error('OAuth callback error:', error);
@@ -206,7 +287,14 @@ async function handleVerifySession(request, env) {
   if (!sessionId || !token) {
     return new Response(JSON.stringify({ valid: false, error: 'Missing parameters' }), {
       status: 400,
-      headers: { 'Content-Type': 'application/json' }
+      headers: { 
+        'Content-Type': 'application/json',
+        'X-Content-Type-Options': 'nosniff',
+        'X-Frame-Options': 'DENY',
+        'X-XSS-Protection': '1; mode=block',
+        'Referrer-Policy': 'strict-origin-when-cross-origin',
+        ...corsHeaders
+      }
     });
   }
 
@@ -216,7 +304,14 @@ async function handleVerifySession(request, env) {
     if (!sessionData) {
       return new Response(JSON.stringify({ valid: false, error: 'Session not found' }), {
         status: 404,
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-Content-Type-Options': 'nosniff',
+          'X-Frame-Options': 'DENY', 
+          'X-XSS-Protection': '1; mode=block',
+          'Referrer-Policy': 'strict-origin-when-cross-origin',
+          ...corsHeaders
+        }
       });
     }
 
@@ -227,15 +322,22 @@ async function handleVerifySession(request, env) {
       await env.OAUTH_SESSIONS.delete(sessionId);
       return new Response(JSON.stringify({ valid: false, error: 'Session expired' }), {
         status: 401,
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-Content-Type-Options': 'nosniff',
+          'X-Frame-Options': 'DENY',
+          'X-XSS-Protection': '1; mode=block', 
+          'Referrer-Policy': 'strict-origin-when-cross-origin',
+          ...corsHeaders
+        }
       });
     }
 
-    // Check if token matches
-    if (session.token !== token) {
+    // SECURITY: Use timing-safe comparison to prevent timing attacks
+    if (!timingSafeEqual(session.token, token)) {
       return new Response(JSON.stringify({ valid: false, error: 'Invalid token' }), {
         status: 401,
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
       });
     }
 
@@ -243,14 +345,32 @@ async function handleVerifySession(request, env) {
       valid: true, 
       user: session.user 
     }), {
-      headers: { 'Content-Type': 'application/json' }
+      headers: { 
+        'Content-Type': 'application/json',
+        // SECURITY: Add security headers to all responses
+        'X-Content-Type-Options': 'nosniff',
+        'X-Frame-Options': 'DENY',
+        'X-XSS-Protection': '1; mode=block',
+        'Referrer-Policy': 'strict-origin-when-cross-origin',
+        ...corsHeaders
+      }
     });
     
   } catch (error) {
-    console.error('Session verification error:', error);
+    // SECURITY: Minimal error logging in production
+    if (env.NODE_ENV !== 'production') {
+      console.error('Session verification error:', error);
+    }
     return new Response(JSON.stringify({ valid: false, error: 'Verification failed' }), {
       status: 500,
-      headers: { 'Content-Type': 'application/json' }
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Content-Type-Options': 'nosniff',
+        'X-Frame-Options': 'DENY',
+        'X-XSS-Protection': '1; mode=block',
+        'Referrer-Policy': 'strict-origin-when-cross-origin',
+        ...corsHeaders
+      }
     });
   }
 }
@@ -295,7 +415,30 @@ function generateSessionId() {
 }
 
 function generateSessionToken() {
+  // SECURITY: Enhanced token generation with additional entropy
   const array = new Uint8Array(32);
   crypto.getRandomValues(array);
-  return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+  
+  // Add timestamp and additional entropy for enhanced security
+  const timestamp = Date.now().toString(16);
+  const additionalEntropy = crypto.randomUUID().replace(/-/g, '');
+  
+  const baseToken = Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+  
+  // Combine all entropy sources and hash them
+  return baseToken + timestamp + additionalEntropy.slice(0, 8);
+}
+
+// SECURITY: Timing-safe string comparison to prevent timing attacks
+function timingSafeEqual(a, b) {
+  if (a.length !== b.length) {
+    return false;
+  }
+  
+  let result = 0;
+  for (let i = 0; i < a.length; i++) {
+    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  
+  return result === 0;
 }

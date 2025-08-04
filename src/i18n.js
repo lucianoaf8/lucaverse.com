@@ -164,7 +164,26 @@ i18n
             termsAgreement: "By continuing, you agree to our Terms of Service",
             encryption: "Protected by enterprise-grade encryption",
             secureConnection: "SECURE CONNECTION ESTABLISHED"
-          }
+          },
+          
+          // Privacy & Consent
+          privacyPolicy: "Privacy Policy",
+          understood: "Understood",
+          dataPrivacyConsent: "Data Privacy & Consent",
+          consentDescription: "Choose how your data is used. You can change these preferences at any time.",
+          essentialData: "Essential Data",
+          required: "Required",
+          essentialDataDesc: "Name, email, and message content needed to process your contact requests and provide our services.",
+          analyticsData: "Usage Analytics",
+          optional: "Optional",
+          analyticsDataDesc: "Help us improve the website by sharing anonymous usage patterns and form interaction data.",
+          performanceData: "Performance Data",
+          performanceDataDesc: "Technical information to optimize website performance and ensure compatibility across devices.",
+          acceptEssentialOnly: "Essential Only",
+          acceptAll: "Accept All",
+          readPrivacyPolicy: "Read Privacy Policy",
+          technicalDetails: "Technical Details",
+          technicalDetailsTitle: "What Data We Collect & Why"
         }
       },
       pt: {

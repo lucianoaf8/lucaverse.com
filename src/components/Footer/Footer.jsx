@@ -1,6 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styles from './Footer.module.css';
+import { getNewsletterUrl } from '../../config/api';
 
 export default function Footer() {
   const { t } = useTranslation();
@@ -20,7 +21,7 @@ export default function Footer() {
             <a className={styles.footerLink} href="#custom-gpts">{t('footerCustomGpts')}</a>
             <a className={styles.footerLink} href="#blog">{t('footerBlog')}</a>
             <a className={styles.footerLink} href="#contact">{t('footerContact')}</a>
-            <a className={styles.footerLink} href="https://newsletter.lucaverse.com" target="_blank" rel="noopener noreferrer">
+            <a className={styles.footerLink} href={getNewsletterUrl()} target="_blank" rel="noopener noreferrer">
               {t('newsletter')} <i className="fas fa-external-link-alt"></i>
             </a>
           </nav>

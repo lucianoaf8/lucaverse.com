@@ -36,3 +36,12 @@ docs/
 authorized-emails-management.md
 Session 1 - Critical XSS Fix.md
 security-audit-remediation-plan.json
+*.png
+*.webm
+*.md
+*.json
+*.txt
+*.xml
+*.info
+*.log
+*.lock

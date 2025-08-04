@@ -4,9 +4,29 @@ export default {
     const url = new URL(request.url);
     const { pathname } = url;
 
-    // CORS headers
+    // CORS headers - SECURITY: Restrict access to admin setup endpoint
+    const allowedOrigins = [
+      env.FRONTEND_URL || 'https://lucaverse.com',
+      'https://lucaverse.com',
+      'https://www.lucaverse.com',
+      // Development origins for admin setup
+      'http://localhost:5155',
+      'http://localhost:3000'
+    ];
+    
+    const origin = request.headers.get('Origin');
+    const isAllowedOrigin = allowedOrigins.includes(origin);
+    
+    // SECURITY: Block unauthorized origins from accessing admin setup
+    if (origin && !isAllowedOrigin) {
+      return new Response('Forbidden: Origin not allowed', { 
+        status: 403,
+        headers: { 'Content-Type': 'text/plain' }
+      });
+    }
+    
     const corsHeaders = {
-      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Origin': isAllowedOrigin ? origin : env.FRONTEND_URL || 'https://lucaverse.com',
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type',
     };

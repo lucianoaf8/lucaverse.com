@@ -109,6 +109,18 @@
   border-radius: 50%;
   border: 2px solid var(--primary-cyan, #00E5FF);
   box-shadow: 0 0 15px rgba(0, 229, 255, 0.3);
+  object-fit: cover;
+}
+
+.defaultAvatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--primary-cyan, #00E5FF), var(--secondary-teal, #00BCD4));
+  color: var(--dark-bg, #040810);
+  font-weight: 700;
+  font-size: 20px;
+  text-transform: uppercase;
 }
 
 .userDetails {

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import TronGrid from '../Background/TronGrid.tsx';
+import { getAuthEndpoint, validateEndpoint } from '../../config/api';
 import styles from './LucaverseLogin.module.css';
 
 const LucaverseLogin = () => {
@@ -29,7 +30,14 @@ const LucaverseLogin = () => {
     const left = (window.screen.width / 2) - (popupWidth / 2);
     const top = (window.screen.height / 2) - (popupHeight / 2);
     
-    const oauthUrl = 'https://lucaverse-auth.lucianoaf8.workers.dev/auth/google';
+    // SECURITY: Use centralized API configuration
+    const oauthUrl = getAuthEndpoint('/auth/google');
+    
+    // SECURITY: Validate endpoint before opening popup
+    if (!validateEndpoint(oauthUrl)) {
+      setIsLoading(false);
+      return;
+    }
     
     const popup = window.open(
       oauthUrl,

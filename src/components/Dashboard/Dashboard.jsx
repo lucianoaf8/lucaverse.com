@@ -1,9 +1,16 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useAuth } from '../../hooks/useAuth';
+import { sanitizeOAuthUserData, safeRender, isValidImageUrl } from '../../utils/securityUtils';
 import styles from './Dashboard.module.css';
 
 export default function Dashboard() {
   const { user, loading, logout } = useAuth();
+  
+  // Sanitize user data from OAuth provider
+  const sanitizedUser = useMemo(() => {
+    if (!user) return null;
+    return sanitizeOAuthUserData(user);
+  }, [user]);
 
   if (loading) {
     return (
@@ -16,7 +23,7 @@ export default function Dashboard() {
     );
   }
 
-  if (!user) {
+  if (!sanitizedUser) {
     return (
       <div className={styles.dashboardError}>
         <div className={styles.errorContainer}>
@@ -32,16 +39,26 @@ export default function Dashboard() {
     <div className={styles.dashboard}>
       <header className={styles.dashboardHeader}>
         <div className={styles.headerContent}>
-          <h1>Welcome to the Lucaverse, {user.name}!</h1>
+          <h1>Welcome to the Lucaverse, {safeRender(sanitizedUser.name, 'User')}!</h1>
           <div className={styles.userInfo}>
-            <img 
-              src={user.picture} 
-              alt={user.name} 
-              className={styles.userAvatar}
-            />
+            {sanitizedUser.picture && isValidImageUrl(sanitizedUser.picture) ? (
+              <img 
+                src={sanitizedUser.picture} 
+                alt={safeRender(sanitizedUser.name, 'User avatar')} 
+                className={styles.userAvatar}
+                onError={(e) => {
+                  // Fallback to default avatar on image load error
+                  e.target.style.display = 'none';
+                }}
+              />
+            ) : (
+              <div className={`${styles.userAvatar} ${styles.defaultAvatar}`}>
+                <span>{sanitizedUser.name.charAt(0).toUpperCase()}</span>
+              </div>
+            )}
             <div className={styles.userDetails}>
-              <span className={styles.userName}>{user.name}</span>
-              <span className={styles.userEmail}>{user.email}</span>
+              <span className={styles.userName}>{safeRender(sanitizedUser.name, 'Unknown User')}</span>
+              <span className={styles.userEmail}>{safeRender(sanitizedUser.email, 'No email')}</span>
             </div>
             <button 
               onClick={logout} 
@@ -58,7 +75,9 @@ export default function Dashboard() {
           <h2>🎉 You're in the Lucaverse!</h2>
           <p>This is your protected dashboard.</p>
           <div className={styles.permissionsInfo}>
-            <strong>Permissions:</strong> {user.permissions?.join(', ')}
+            <strong>Permissions:</strong> {sanitizedUser.permissions?.length > 0 
+              ? sanitizedUser.permissions.join(', ') 
+              : 'Basic access'}
           </div>
         </div>
         
