@@ -3,8 +3,6 @@
  * Tests various XSS attack vectors and validates prevention mechanisms
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-
 // Mock DOM environment for security testing
 import { JSDOM } from 'jsdom';
 

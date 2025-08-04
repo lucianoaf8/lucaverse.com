@@ -7,6 +7,16 @@ configure({
   testIdAttribute: 'data-testid',
 });
 
+// Ensure React is available globally for hook testing
+const React = require('react');
+const ReactDOM = require('react-dom');
+global.React = React;
+global.ReactDOM = ReactDOM;
+
+// Enable React 18 concurrent features in tests
+const { act } = require('@testing-library/react');
+global.act = act;
+
 // Add jest-axe accessibility testing
 expect.extend(toHaveNoViolations);
 
@@ -32,8 +42,33 @@ jest.mock('react-i18next', () => ({
   },
 }));
 
-// Mock CSS Modules
+// Mock CSS Modules more comprehensively
 jest.mock('*.module.css', () => ({}));
+
+// Specifically mock Dashboard CSS module to avoid import issues
+jest.mock('../../src/components/Dashboard/Dashboard.module.css', () => ({
+  dashboard: 'dashboard',
+  dashboardLoading: 'dashboardLoading',
+  loadingContainer: 'loadingContainer',
+  spinner: 'spinner',
+  dashboardError: 'dashboardError',
+  errorContainer: 'errorContainer',
+  dashboardHeader: 'dashboardHeader',
+  headerContent: 'headerContent',
+  userInfo: 'userInfo',
+  userAvatar: 'userAvatar',
+  defaultAvatar: 'defaultAvatar',
+  userDetails: 'userDetails',
+  userName: 'userName',
+  userEmail: 'userEmail',
+  btn: 'btn',
+  btnSecondary: 'btnSecondary',
+  dashboardContent: 'dashboardContent',
+  welcomeSection: 'welcomeSection',
+  permissionsInfo: 'permissionsInfo',
+  featuresGrid: 'featuresGrid',
+  featureCard: 'featureCard',
+}), { virtual: true });
 
 // Mock particles.js
 jest.mock('particles.js', () => ({
@@ -42,6 +77,64 @@ jest.mock('particles.js', () => ({
 
 // Mock environment variables
 process.env.NODE_ENV = 'test';
+
+// Mock Node.js globals for security tests
+const { TextEncoder, TextDecoder } = require('util');
+global.TextEncoder = TextEncoder;
+global.TextDecoder = TextDecoder;
+global.crypto = {
+  getRandomValues: (arr) => {
+    for (let i = 0; i < arr.length; i++) {
+      arr[i] = Math.floor(Math.random() * 256);
+    }
+    return arr;
+  }
+};
+
+// Mock Cloudflare Worker globals for integration tests
+class MockRequest {
+  constructor(url, init = {}) {
+    this.url = url;
+    this.method = init.method || 'GET';
+    this.headers = new Map(Object.entries(init.headers || {}));
+    this.body = init.body;
+  }
+}
+
+class MockResponse {
+  constructor(body, init = {}) {
+    this.body = body;
+    this.status = init.status || 200;
+    this.statusText = init.statusText || 'OK';
+    this.headers = new Map(Object.entries(init.headers || {}));
+  }
+  
+  async json() {
+    try {
+      return JSON.parse(this.body);
+    } catch (e) {
+      throw new Error('Invalid JSON in response body');
+    }
+  }
+  
+  async text() {
+    return this.body;
+  }
+  
+  static json(data, init = {}) {
+    return new MockResponse(JSON.stringify(data), {
+      ...init,
+      headers: { 'Content-Type': 'application/json', ...(init.headers || {}) }
+    });
+  }
+  
+  static redirect(url, status = 302) {
+    return new MockResponse('', { status, headers: { Location: url } });
+  }
+}
+
+global.Request = MockRequest;
+global.Response = MockResponse;
 
 // Setup global test utilities
 global.testUtils = {

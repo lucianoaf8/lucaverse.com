@@ -1,5 +1,7 @@
+import React from 'react';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { useAuth } from '../../../src/hooks/useAuth';
+import { HookTestWrapper, createRenderOptions } from '../../setup/reactTestHelpers';
 
 // Mock all dependencies
 jest.mock('../../../src/config/api', () => ({
@@ -84,7 +86,9 @@ describe('useAuth Hook', () => {
 
   describe('Initial Authentication Check', () => {
     it('starts with loading state', () => {
-      const { result } = renderHook(() => useAuth());
+      const { result } = renderHook(() => useAuth(), {
+        wrapper: HookTestWrapper
+      });
       
       expect(result.current.loading).toBe(true);
       expect(result.current.user).toBe(null);
@@ -96,7 +100,7 @@ describe('useAuth Hook', () => {
       // Mock URL with tokens
       window.location.search = '?token=test-token&session=test-session';
       
-      renderHook(() => useAuth());
+      renderHook(() => useAuth(), { wrapper: HookTestWrapper });
       
       await waitFor(() => {
         expect(mockSecureSetItem).toHaveBeenCalledWith('auth_token', 'test-token', { ttl: 7 * 24 * 60 * 60 * 1000 });
@@ -118,7 +122,7 @@ describe('useAuth Hook', () => {
         json: async () => ({ valid: true, user: mockUser }),
       });
       
-      const { result } = renderHook(() => useAuth());
+      const { result } = renderHook(() => useAuth(), { wrapper: HookTestWrapper });
       
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
@@ -145,7 +149,7 @@ describe('useAuth Hook', () => {
         json: async () => ({ valid: false }),
       });
       
-      const { result } = renderHook(() => useAuth());
+      const { result } = renderHook(() => useAuth(), { wrapper: HookTestWrapper });
       
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
@@ -172,7 +176,7 @@ describe('useAuth Hook', () => {
         json: async () => ({ valid: true, user: mockUser }),
       });
       
-      const { result } = renderHook(() => useAuth());
+      const { result } = renderHook(() => useAuth(), { wrapper: HookTestWrapper });
       
       await waitFor(() => {
         expect(result.current.user).toEqual(mockUser);
@@ -196,7 +200,7 @@ describe('useAuth Hook', () => {
         json: async () => ({ valid: true, user: mockUser }),
       });
       
-      renderHook(() => useAuth());
+      renderHook(() => useAuth(), { wrapper: HookTestWrapper });
       
       await waitFor(() => {
         // Should migrate to secure storage
@@ -225,7 +229,7 @@ describe('useAuth Hook', () => {
         json: async () => ({ valid: true, user: mockUser }),
       });
       
-      const { result } = renderHook(() => useAuth());
+      const { result } = renderHook(() => useAuth(), { wrapper: HookTestWrapper });
       
       await waitFor(() => {
         expect(result.current.user).toEqual(mockUser);
@@ -252,7 +256,7 @@ describe('useAuth Hook', () => {
       // Mock network error
       global.fetch.mockRejectedValue(new Error('Network error'));
       
-      const { result } = renderHook(() => useAuth());
+      const { result } = renderHook(() => useAuth(), { wrapper: HookTestWrapper });
       
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
@@ -274,7 +278,7 @@ describe('useAuth Hook', () => {
         .mockResolvedValueOnce('test-token')
         .mockResolvedValueOnce('test-session');
       
-      const { result } = renderHook(() => useAuth());
+      const { result } = renderHook(() => useAuth(), { wrapper: HookTestWrapper });
       
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
@@ -292,7 +296,7 @@ describe('useAuth Hook', () => {
       // Mock storage error
       secureStorage.secureGetItem.mockRejectedValue(new Error('Storage error'));
       
-      const { result } = renderHook(() => useAuth());
+      const { result } = renderHook(() => useAuth(), { wrapper: HookTestWrapper });
       
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
@@ -324,7 +328,7 @@ describe('useAuth Hook', () => {
           json: async () => ({ success: true }),
         });
       
-      const { result } = renderHook(() => useAuth());
+      const { result } = renderHook(() => useAuth(), { wrapper: HookTestWrapper });
       
       // Wait for initial auth
       await waitFor(() => {
@@ -368,7 +372,7 @@ describe('useAuth Hook', () => {
         })
         .mockRejectedValueOnce(new Error('Logout failed'));
       
-      const { result } = renderHook(() => useAuth());
+      const { result } = renderHook(() => useAuth(), { wrapper: HookTestWrapper });
       
       // Wait for initial auth
       await waitFor(() => {
@@ -408,7 +412,7 @@ describe('useAuth Hook', () => {
       delete window.location;
       window.location = { href: '' };
       
-      const { result } = renderHook(() => useAuth());
+      const { result } = renderHook(() => useAuth(), { wrapper: HookTestWrapper });
       
       // Wait for initial auth
       await waitFor(() => {
@@ -433,7 +437,7 @@ describe('useAuth Hook', () => {
       // Mock URL with tokens
       window.location.search = '?token=secure-token&session=secure-session';
       
-      renderHook(() => useAuth());
+      renderHook(() => useAuth(), { wrapper: HookTestWrapper });
       
       await waitFor(() => {
         expect(mockSecureSetItem).toHaveBeenCalledWith('auth_token', 'secure-token', { 
@@ -455,7 +459,7 @@ describe('useAuth Hook', () => {
       // Mock URL with tokens
       window.location.search = '?token=fallback-token&session=fallback-session';
       
-      renderHook(() => useAuth());
+      renderHook(() => useAuth(), { wrapper: HookTestWrapper });
       
       await waitFor(() => {
         expect(FallbackStorage.setItem).toHaveBeenCalledWith('auth_token', 'fallback-token');
@@ -487,7 +491,7 @@ describe('useAuth Hook', () => {
           json: async () => ({ success: true }),
         });
       
-      const { result } = renderHook(() => useAuth());
+      const { result } = renderHook(() => useAuth(), { wrapper: HookTestWrapper });
       
       await waitFor(() => {
         expect(result.current.user).toEqual(mockUser);
@@ -514,7 +518,7 @@ describe('useAuth Hook', () => {
       // No URL parameters
       window.location.search = '';
       
-      const { result } = renderHook(() => useAuth());
+      const { result } = renderHook(() => useAuth(), { wrapper: HookTestWrapper });
       
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
@@ -530,7 +534,7 @@ describe('useAuth Hook', () => {
       // Only token, no session
       window.location.search = '?token=only-token';
       
-      const { result } = renderHook(() => useAuth());
+      const { result } = renderHook(() => useAuth(), { wrapper: HookTestWrapper });
       
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
@@ -542,7 +546,7 @@ describe('useAuth Hook', () => {
     });
 
     it('handles logout without existing session', async () => {
-      const { result } = renderHook(() => useAuth());
+      const { result } = renderHook(() => useAuth(), { wrapper: HookTestWrapper });
       
       await waitFor(() => {
         expect(result.current.loading).toBe(false);

@@ -69,12 +69,14 @@ const LucaverseLogin = () => {
         await storeAuthTokensSecurely(event.data.token, event.data.sessionId);
         
         // Close the popup first (with COOP error handling)
-        if (popup && !popup.closed) {
+        if (popup) {
           try {
-            popup.close();
+            if (!popup.closed) {
+              popup.close();
+            }
           } catch (error) {
             // Silently handle COOP policy errors - popup will close naturally
-            console.debug('Popup close blocked by COOP policy - popup will close naturally');
+            console.debug('Popup operations blocked by COOP policy - popup will close naturally');
           }
         }
         
@@ -93,12 +95,14 @@ const LucaverseLogin = () => {
         console.error('OAuth error:', event.data.error);
         
         // Close the popup first (with COOP error handling)
-        if (popup && !popup.closed) {
+        if (popup) {
           try {
-            popup.close();
+            if (!popup.closed) {
+              popup.close();
+            }
           } catch (error) {
             // Silently handle COOP policy errors - popup will close naturally
-            console.debug('Popup close blocked by COOP policy - popup will close naturally');
+            console.debug('Popup operations blocked by COOP policy - popup will close naturally');
           }
         }
         
@@ -118,12 +122,14 @@ const LucaverseLogin = () => {
 
     // Timeout after 5 minutes
     timeoutId = setTimeout(() => {
-      if (popup && !popup.closed) {
+      if (popup) {
         try {
-          popup.close();
+          if (!popup.closed) {
+            popup.close();
+          }
         } catch (error) {
           // Silently handle COOP policy errors - popup will close naturally
-          console.debug('Popup close blocked by COOP policy during timeout - popup will close naturally');
+          console.debug('Popup operations blocked by COOP policy during timeout - popup will close naturally');
         }
       }
       window.removeEventListener('message', messageHandler);

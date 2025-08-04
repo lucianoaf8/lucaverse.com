@@ -63,12 +63,23 @@ export default {
         
         case '/auth/verify':
           console.log('✋ Handling session verification');
-          response = await handleVerifySession(request, env);
+          response = await handleVerifySession(request, env, corsHeaders);
           break;
         
         case '/auth/logout':
           console.log('👋 Handling logout');
           response = await handleLogout(request, env);
+          break;
+        
+        case '/auth/test':
+          console.log('🧪 Test endpoint called');
+          response = new Response(JSON.stringify({ 
+            status: 'OK', 
+            timestamp: Date.now(),
+            kvTest: 'KV access working'
+          }), {
+            headers: { 'Content-Type': 'application/json' }
+          });
           break;
         
         default:
@@ -258,12 +269,15 @@ async function handleGoogleCallback(request, env) {
 }
 
 // Verify session token
-async function handleVerifySession(request, env) {
+async function handleVerifySession(request, env, corsHeaders) {
   const url = new URL(request.url);
   const sessionId = url.searchParams.get('session');
   const token = url.searchParams.get('token');
   
+  console.log('🔍 Verify session request:', { sessionId: sessionId ? 'present' : 'missing', token: token ? 'present' : 'missing' });
+  
   if (!sessionId || !token) {
+    console.log('❌ Missing parameters');
     return new Response(JSON.stringify({ valid: false, error: 'Missing parameters' }), {
       status: 400,
       headers: { 
@@ -278,9 +292,11 @@ async function handleVerifySession(request, env) {
   }
 
   try {
+    console.log('🔍 Looking up session:', sessionId);
     const sessionData = await env.OAUTH_SESSIONS.get(sessionId);
     
     if (!sessionData) {
+      console.log('❌ Session not found in KV');
       return new Response(JSON.stringify({ valid: false, error: 'Session not found' }), {
         status: 404,
         headers: { 
@@ -294,10 +310,13 @@ async function handleVerifySession(request, env) {
       });
     }
 
+    console.log('✅ Session data found, parsing...');
     const session = JSON.parse(sessionData);
     
     // Check if session is expired
+    console.log('🕐 Checking expiry:', { now: Date.now(), expires: session.expiresAt });
     if (Date.now() > session.expiresAt) {
+      console.log('❌ Session expired');
       await env.OAUTH_SESSIONS.delete(sessionId);
       return new Response(JSON.stringify({ valid: false, error: 'Session expired' }), {
         status: 401,
@@ -313,13 +332,16 @@ async function handleVerifySession(request, env) {
     }
 
     // SECURITY: Use timing-safe comparison to prevent timing attacks
+    console.log('🔐 Comparing tokens...', { sessionTokenType: typeof session.token, tokenType: typeof token });
     if (!timingSafeEqual(session.token, token)) {
+      console.log('❌ Token mismatch');
       return new Response(JSON.stringify({ valid: false, error: 'Invalid token' }), {
         status: 401,
         headers: { 'Content-Type': 'application/json', ...corsHeaders }
       });
     }
 
+    console.log('✅ Session verification successful');
     return new Response(JSON.stringify({ 
       valid: true, 
       user: session.user 
@@ -336,11 +358,9 @@ async function handleVerifySession(request, env) {
     });
     
   } catch (error) {
-    // SECURITY: Minimal error logging in production
-    if (env.NODE_ENV !== 'production') {
-      console.error('Session verification error:', error);
-    }
-    return new Response(JSON.stringify({ valid: false, error: 'Verification failed' }), {
+    console.error('💥 Session verification error:', error.message);
+    console.error('📚 Stack trace:', error.stack);
+    return new Response(JSON.stringify({ valid: false, error: 'Verification failed', details: error.message }), {
       status: 500,
       headers: {
         'Content-Type': 'application/json',
