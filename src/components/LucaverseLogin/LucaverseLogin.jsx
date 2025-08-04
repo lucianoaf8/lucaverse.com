@@ -68,48 +68,34 @@ const LucaverseLogin = () => {
         // Store authentication tokens securely
         await storeAuthTokensSecurely(event.data.token, event.data.sessionId);
         
-        // Close the popup (with COOP error handling)
-        if (popup) {
-          try {
-            popup.close();
-          } catch (error) {
-            // Silently handle COOP policy errors - popup will close naturally
-            console.debug('Popup operations blocked by COOP policy - popup will close naturally');
-          }
-        }
+        // DO NOT close popup manually - let popup self-close to avoid COOP race conditions
+        // The popup will close itself via window.close() in oauth-callback.html
         
         // Clean up
         clearTimeout(timeoutId);
         window.removeEventListener('message', messageHandler);
         
-        // Wait a moment for popup to fully close, then redirect
+        // Wait longer for popup to self-close completely, then redirect
         setTimeout(() => {
           setIsLoading(false);
           window.location.hash = 'dashboard';
-        }, 500);
+        }, 1500);
         
       } else if (event.data.type === 'OAUTH_ERROR') {
         // Handle authentication error
         console.error('OAuth error:', event.data.error);
         
-        // Close the popup (with COOP error handling)
-        if (popup) {
-          try {
-            popup.close();
-          } catch (error) {
-            // Silently handle COOP policy errors - popup will close naturally
-            console.debug('Popup operations blocked by COOP policy - popup will close naturally');
-          }
-        }
+        // DO NOT close popup manually - let popup self-close to avoid COOP race conditions
+        // The popup will close itself via window.close() in oauth-callback.html
         
         clearTimeout(timeoutId);
         window.removeEventListener('message', messageHandler);
         
-        // Wait a moment for popup to fully close, then show error
+        // Wait longer for popup to self-close completely, then show error
         setTimeout(() => {
           setIsLoading(false);
           alert('Authentication failed. Please try again.');
-        }, 300);
+        }, 1500);
       }
     };
 
@@ -118,17 +104,11 @@ const LucaverseLogin = () => {
 
     // Timeout after 5 minutes
     timeoutId = setTimeout(() => {
-      if (popup) {
-        try {
-          popup.close();
-        } catch (error) {
-          // Silently handle COOP policy errors - popup will close naturally
-          console.debug('Popup operations blocked by COOP policy during timeout - popup will close naturally');
-        }
-      }
+      // DO NOT attempt to close popup manually on timeout - avoid COOP violations
+      // Let popup close naturally or user close it manually
       window.removeEventListener('message', messageHandler);
       setIsLoading(false);
-      console.error('OAuth timeout');
+      console.error('OAuth timeout - popup may still be open');
     }, 300000);
   };
 

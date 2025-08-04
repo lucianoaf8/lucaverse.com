@@ -56,6 +56,17 @@
                     error: error
                 }, window.location.origin);
             }
+            
+            // Wait longer before self-closing to ensure PostMessage completes
+            setTimeout(() => {
+                try {
+                    window.close();
+                } catch (error) {
+                    // Silently handle COOP policy errors - popup will close naturally or be closed by parent
+                    console.debug('Popup self-close blocked by COOP policy');
+                }
+            }, 2000);
+            
         } else if (token && sessionId) {
             // Send successful authentication to parent window
             if (window.opener) {
@@ -65,17 +76,17 @@
                     sessionId: sessionId
                 }, window.location.origin);
             }
+            
+            // Wait longer before self-closing to ensure PostMessage completes and parent processes it
+            setTimeout(() => {
+                try {
+                    window.close();
+                } catch (error) {
+                    // Silently handle COOP policy errors - popup will close naturally or be closed by parent
+                    console.debug('Popup self-close blocked by COOP policy');
+                }
+            }, 2000);
         }
-        
-        // Close popup after a short delay
-        setTimeout(() => {
-            try {
-                window.close();
-            } catch (error) {
-                // Silently handle COOP policy errors - popup will close naturally or be closed by parent
-                console.debug('Popup self-close blocked by COOP policy');
-            }
-        }, 1000);
     </script>
 </body>
 </html>
