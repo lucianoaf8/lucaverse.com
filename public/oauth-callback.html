@@ -69,7 +69,12 @@
         
         // Close popup after a short delay
         setTimeout(() => {
-            window.close();
+            try {
+                window.close();
+            } catch (error) {
+                // Silently handle COOP policy errors - popup will close naturally or be closed by parent
+                console.debug('Popup self-close blocked by COOP policy');
+            }
         }, 1000);
     </script>
 </body>
