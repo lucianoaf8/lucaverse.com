@@ -72,12 +72,13 @@ export default function Contact() {
     const honeypot = initializeHoneypot();
     setHoneypotSystem(honeypot);
     
-    const existingConsent = PrivacyManager.getConsent();
-    if (existingConsent) {
-      setPrivacyConsent(existingConsent.preferences);
-    } else if (PrivacyHelpers.needsConsentDecision()) {
-      setShowPrivacyConsent(true);
-    }
+    // DISABLED: Privacy consent modal disabled for now
+    // const existingConsent = PrivacyManager.getConsent();
+    // if (existingConsent) {
+    //   setPrivacyConsent(existingConsent.preferences);
+    // } else if (PrivacyHelpers.needsConsentDecision()) {
+    //   setShowPrivacyConsent(true);
+    // }
   }, []);
 
   const showNotification = (type, message) => {
@@ -238,8 +239,8 @@ export default function Contact() {
         onClose={hideNotification} 
       />
 
-      {/* Privacy Consent Modal */}
-      {showPrivacyConsent && (
+      {/* Privacy Consent Modal - DISABLED */}
+      {false && showPrivacyConsent && (
         <div style={{
           position: 'fixed',
           top: 0,
@@ -436,8 +437,8 @@ export default function Contact() {
               />
             ))}
 
-            {/* Privacy Notice */}
-            {privacyConsent && (
+            {/* Privacy Notice - DISABLED */}
+            {false && privacyConsent && (
               <div className={styles.privacyNotice}>
                 <div className={styles.privacyStatus}>
                   <span className={styles.privacyIcon}>🛡️</span>
