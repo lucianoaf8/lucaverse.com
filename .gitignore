@@ -45,3 +45,6 @@ security-audit-remediation-plan.json
 *.info
 *.log
 *.lock
+!.env.example
+!package.json
+!package-lock.json

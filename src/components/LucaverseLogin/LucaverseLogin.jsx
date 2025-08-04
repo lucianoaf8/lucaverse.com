@@ -68,12 +68,10 @@ const LucaverseLogin = () => {
         // Store authentication tokens securely
         await storeAuthTokensSecurely(event.data.token, event.data.sessionId);
         
-        // Close the popup first (with COOP error handling)
+        // Close the popup (with COOP error handling)
         if (popup) {
           try {
-            if (!popup.closed) {
-              popup.close();
-            }
+            popup.close();
           } catch (error) {
             // Silently handle COOP policy errors - popup will close naturally
             console.debug('Popup operations blocked by COOP policy - popup will close naturally');
@@ -94,12 +92,10 @@ const LucaverseLogin = () => {
         // Handle authentication error
         console.error('OAuth error:', event.data.error);
         
-        // Close the popup first (with COOP error handling)
+        // Close the popup (with COOP error handling)
         if (popup) {
           try {
-            if (!popup.closed) {
-              popup.close();
-            }
+            popup.close();
           } catch (error) {
             // Silently handle COOP policy errors - popup will close naturally
             console.debug('Popup operations blocked by COOP policy - popup will close naturally');
@@ -124,9 +120,7 @@ const LucaverseLogin = () => {
     timeoutId = setTimeout(() => {
       if (popup) {
         try {
-          if (!popup.closed) {
-            popup.close();
-          }
+          popup.close();
         } catch (error) {
           // Silently handle COOP policy errors - popup will close naturally
           console.debug('Popup operations blocked by COOP policy during timeout - popup will close naturally');
