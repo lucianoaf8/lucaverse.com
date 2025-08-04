@@ -246,31 +246,8 @@ async function handleGoogleCallback(request, env) {
       `Domain=${new URL(env.FRONTEND_URL).hostname}`
     ].join('; ');
     
-    return new Response(
-      `<!DOCTYPE html>
-      <html>
-      <head>
-        <title>Authentication Success</title>
-        <script>
-          // Fallback for environments that don't support HttpOnly cookies
-          localStorage.setItem('auth_token', '${sessionToken}');
-          localStorage.setItem('session_id', '${sessionId}');
-          window.location.href = '${redirectUrl.toString()}';
-        </script>
-      </head>
-      <body>
-        <p>Authentication successful. Redirecting...</p>
-      </body>
-      </html>`,
-      {
-        status: 200,
-        headers: {
-          'Content-Type': 'text/html',
-          'Set-Cookie': [cookieOptions, cookieToken],
-          ...corsHeaders
-        }
-      }
-    );
+    // SECURITY: Use URL parameter redirect to oauth-callback.html for PostMessage handling
+    return Response.redirect(`${env.FRONTEND_URL}/oauth-callback.html?token=${sessionToken}&session=${sessionId}`, 302);
     
   } catch (error) {
     console.error('OAuth callback error:', error);

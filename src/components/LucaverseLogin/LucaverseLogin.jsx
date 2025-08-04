@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import TronGrid from '../Background/TronGrid.tsx';
 import { getAuthEndpoint, validateEndpoint } from '../../config/api';
+import { storeAuthTokensSecurely } from '../../hooks/useAuth';
 import styles from './LucaverseLogin.module.css';
 
 const LucaverseLogin = () => {
@@ -57,16 +58,15 @@ const LucaverseLogin = () => {
     let timeoutId;
 
     // Listen for messages from the popup
-    const messageHandler = (event) => {
+    const messageHandler = async (event) => {
       // Verify origin for security
       if (event.origin !== window.location.origin) {
         return;
       }
 
       if (event.data.type === 'OAUTH_SUCCESS') {
-        // Store authentication tokens
-        localStorage.setItem('auth_token', event.data.token);
-        localStorage.setItem('session_id', event.data.sessionId);
+        // Store authentication tokens securely
+        await storeAuthTokensSecurely(event.data.token, event.data.sessionId);
         
         // Close the popup first
         if (popup && !popup.closed) {

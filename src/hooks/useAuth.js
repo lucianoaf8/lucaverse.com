@@ -4,7 +4,7 @@ import { secureStorage, SecureCookies, FallbackStorage } from '../utils/secureSt
 import { authLogger } from '../utils/logger.js';
 
 // SECURITY: Helper functions for secure token storage
-const storeAuthTokensSecurely = async (token, sessionId) => {
+export const storeAuthTokensSecurely = async (token, sessionId) => {
   try {
     // Primary: Use secure encrypted storage if available
     if (secureStorage.isAvailable()) {
