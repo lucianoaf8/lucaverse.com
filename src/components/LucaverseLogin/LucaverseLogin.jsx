@@ -32,7 +32,8 @@ const LucaverseLogin = () => {
     const top = (window.screen.height / 2) - (popupHeight / 2);
     
     // SECURITY: Use centralized API configuration
-    const oauthUrl = getAuthEndpoint('/auth/google');
+    // Pass current origin so the auth worker redirects callback to the correct frontend
+    const oauthUrl = getAuthEndpoint(`/auth/google?origin=${encodeURIComponent(window.location.origin)}`);
     
     // SECURITY: Validate endpoint before opening popup
     if (!validateEndpoint(oauthUrl)) {
@@ -57,60 +58,52 @@ const LucaverseLogin = () => {
     // Timeout ID for cleanup
     let timeoutId;
 
-    // Listen for messages from the popup
-    const messageHandler = async (event) => {
-      // Verify origin for security
-      if (event.origin !== window.location.origin) {
-        return;
-      }
-
-      if (event.data.type === 'OAUTH_SUCCESS') {
-        // Store authentication tokens securely
-        await storeAuthTokensSecurely(event.data.token, event.data.sessionId);
-        
-        // DO NOT close popup manually - let popup self-close to avoid COOP race conditions
-        // The popup will close itself via window.close() in oauth-callback.html
-        
-        // Clean up
-        clearTimeout(timeoutId);
-        window.removeEventListener('message', messageHandler);
-        
-        // Wait for popup to fully close before redirecting to dashboard
-        // DO NOT access popup.closed property to avoid COOP violations
-        // Use fixed delay that's longer than popup self-close timeout (2000ms + buffer)
+    // Handle OAuth result from popup (via BroadcastChannel or postMessage)
+    const handleOAuthResult = async (data) => {
+      if (data.type === 'OAUTH_SUCCESS') {
+        await storeAuthTokensSecurely(data.token, data.sessionId);
+        cleanup();
         setTimeout(() => {
           setIsLoading(false);
           window.location.hash = 'dashboard';
-        }, 2500);
-        
-      } else if (event.data.type === 'OAUTH_ERROR') {
-        // Handle authentication error
-        console.error('OAuth error:', event.data.error);
-        
-        // DO NOT close popup manually - let popup self-close to avoid COOP race conditions
-        // The popup will close itself via window.close() in oauth-callback.html
-        
-        clearTimeout(timeoutId);
-        window.removeEventListener('message', messageHandler);
-        
-        // Wait for popup to fully close before showing error
-        // DO NOT access popup.closed property to avoid COOP violations
-        // Use fixed delay that's longer than popup self-close timeout (2000ms + buffer)
+        }, 1500);
+      } else if (data.type === 'OAUTH_ERROR') {
+        console.error('OAuth error:', data.error);
+        cleanup();
         setTimeout(() => {
           setIsLoading(false);
           alert('Authentication failed. Please try again.');
-        }, 2500);
+        }, 1500);
       }
     };
 
-    // Add message listener
+    // Primary: BroadcastChannel (works even when COOP severs window.opener)
+    let bc;
+    try {
+      bc = new BroadcastChannel('lucaverse_oauth');
+      bc.onmessage = (event) => handleOAuthResult(event.data);
+    } catch (e) {
+      console.debug('BroadcastChannel unavailable:', e);
+    }
+
+    // Fallback: postMessage (in case BroadcastChannel isn't supported)
+    const messageHandler = (event) => {
+      if (event.origin !== window.location.origin) return;
+      if (event.data.type === 'OAUTH_SUCCESS' || event.data.type === 'OAUTH_ERROR') {
+        handleOAuthResult(event.data);
+      }
+    };
     window.addEventListener('message', messageHandler);
+
+    const cleanup = () => {
+      clearTimeout(timeoutId);
+      window.removeEventListener('message', messageHandler);
+      if (bc) { try { bc.close(); } catch (e) { /* ignore */ } }
+    };
 
     // Timeout after 5 minutes
     timeoutId = setTimeout(() => {
-      // DO NOT attempt to close popup manually on timeout - avoid COOP violations
-      // Let popup close naturally or user close it manually
-      window.removeEventListener('message', messageHandler);
+      cleanup();
       setIsLoading(false);
       console.error('OAuth timeout - popup may still be open');
     }, 300000);

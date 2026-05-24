@@ -56,10 +56,8 @@ export const validateEndpoint = (url) => {
       'localhost' // For development
     ];
     
-    return allowedHosts.some(host => 
-      parsedUrl.hostname === host || 
-      (host === 'localhost' && parsedUrl.hostname.includes('localhost'))
-    );
+    // SECURITY: Use strict equality for all hosts including localhost
+    return allowedHosts.some(host => parsedUrl.hostname === host);
   } catch {
     return false;
   }

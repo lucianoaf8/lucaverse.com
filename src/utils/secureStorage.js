@@ -337,6 +337,10 @@ export const SecureCookies = {
 /**
  * Fallback storage for environments without crypto support
  */
+// SECURITY WARNING: FallbackStorage uses XOR obfuscation, NOT encryption.
+// The XOR key is stored alongside the ciphertext, providing zero confidentiality.
+// This is a cosmetic deterrent only — do NOT rely on it for sensitive data.
+// Prefer SecureStorage (AES-GCM via Web Crypto API) in all supporting browsers.
 export const FallbackStorage = {
   /**
    * Simple XOR encoding for basic obfuscation (not cryptographically secure)

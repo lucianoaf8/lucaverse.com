@@ -1,28 +1,34 @@
 // Google OAuth Worker for Lucaverse Authentication
+
+// SECURITY: Production-safe debug logger — suppresses all debug output in production
+let _debugLog = () => {};
+
 export default {
   async fetch(request, env) {
+    // Set up debug logger once per request based on environment
+    _debugLog = env.NODE_ENV !== 'production' ? console.log.bind(console) : () => {};
+
     const url = new URL(request.url);
     const { pathname } = url;
 
-    // SECURITY: Minimal production logging to prevent information disclosure
-    if (env.NODE_ENV !== 'production') {
-      console.log('🌟 Worker request:', request.method, pathname);
-      console.log('🔧 Environment check:', {
-        hasGoogleClientId: !!env.GOOGLE_CLIENT_ID,
-        hasGoogleClientSecret: !!env.GOOGLE_CLIENT_SECRET,
-        workerUrl: env.WORKER_URL ? 'configured' : 'missing',
-        frontendUrl: env.FRONTEND_URL ? 'configured' : 'missing'
-      });
-    }
+    _debugLog('🌟 Worker request:', request.method, pathname);
+    _debugLog('🔧 Environment check:', {
+      hasGoogleClientId: !!env.GOOGLE_CLIENT_ID,
+      hasGoogleClientSecret: !!env.GOOGLE_CLIENT_SECRET,
+      workerUrl: env.WORKER_URL ? 'configured' : 'missing',
+      frontendUrl: env.FRONTEND_URL ? 'configured' : 'missing'
+    });
 
     // Handle CORS for frontend requests - SECURITY: Use specific allowed origins only
     const allowedOrigins = [
       env.FRONTEND_URL || 'https://lucaverse.com',
       'https://lucaverse.com',
       'https://www.lucaverse.com',
-      // Development origins
-      'http://localhost:5155',
-      'http://localhost:3000'
+      // SECURITY: Only include development origins in non-production
+      ...(env.NODE_ENV !== 'production' ? [
+        'http://localhost:5155',
+        'http://localhost:3000'
+      ] : [])
     ];
     
     const origin = request.headers.get('Origin');
@@ -39,7 +45,7 @@ export default {
     };
 
     if (request.method === 'OPTIONS') {
-      console.log('✅ Handling OPTIONS request');
+      _debugLog('✅ Handling OPTIONS request');
       return new Response(null, { 
         status: 200,
         headers: corsHeaders 
@@ -52,27 +58,31 @@ export default {
       // Route handling
       switch (pathname) {
         case '/auth/google':
-          console.log('🔍 Handling Google auth request');
-          response = await handleGoogleAuth(env);
+          _debugLog('🔍 Handling Google auth request');
+          response = await handleGoogleAuth(request, env);
           break;
         
         case '/auth/google/callback':
-          console.log('🔄 Handling Google callback');
+          _debugLog('🔄 Handling Google callback');
           response = await handleGoogleCallback(request, env);
           break;
         
+        case '/auth/exchange':
+          response = await handleExchangeCode(request, env, corsHeaders);
+          break;
+
         case '/auth/verify':
-          console.log('✋ Handling session verification');
+          _debugLog('✋ Handling session verification');
           response = await handleVerifySession(request, env, corsHeaders);
           break;
         
         case '/auth/logout':
-          console.log('👋 Handling logout');
+          _debugLog('👋 Handling logout');
           response = await handleLogout(request, env);
           break;
         
         case '/auth/test':
-          console.log('🧪 Test endpoint called');
+          _debugLog('🧪 Test endpoint called');
           response = new Response(JSON.stringify({ 
             status: 'OK', 
             timestamp: Date.now(),
@@ -83,7 +93,7 @@ export default {
           break;
         
         default:
-          console.log('❓ Unknown route:', pathname);
+          _debugLog('❓ Unknown route:', pathname);
           response = new Response('Not Found', { status: 404 });
           break;
       }
@@ -95,43 +105,64 @@ export default {
         });
       }
 
-      console.log('✅ Response ready:', response.status);
+      _debugLog('✅ Response ready:', response.status);
       return response;
       
     } catch (error) {
       console.error('💥 Worker error:', error.message);
       console.error('📚 Stack trace:', error.stack);
-      return new Response(`Internal Server Error: ${error.message}`, { 
-        status: 500, 
-        headers: corsHeaders 
+      // SECURITY: Never expose error.message to clients (information disclosure)
+      return new Response('Internal Server Error', {
+        status: 500,
+        headers: corsHeaders
       });
     }
   }
 };
 
+// SECURITY: Allowed frontend origins for OAuth callback redirects
+const ALLOWED_ORIGINS = [
+  'https://lucaverse.com',
+  'https://www.lucaverse.com',
+  'http://localhost:5155',
+  'http://localhost:3000'
+];
+
 // Google OAuth redirect
-async function handleGoogleAuth(env) {
-  console.log('🎯 Starting Google OAuth process');
-  
+async function handleGoogleAuth(request, env) {
+  _debugLog('🎯 Starting Google OAuth process');
+
   try {
     const googleClientId = env.GOOGLE_CLIENT_ID;
-    console.log('🔑 Google Client ID check:', !!googleClientId);
-    
+    _debugLog('🔑 Google Client ID check:', !!googleClientId);
+
     if (!googleClientId) {
       throw new Error('GOOGLE_CLIENT_ID environment variable is missing');
     }
-    
+
     const redirectUri = `${env.WORKER_URL}/auth/google/callback`;
-    console.log('🔗 Redirect URI:', redirectUri);
-    
+    _debugLog('🔗 Redirect URI:', redirectUri);
+
+    // Read and validate the frontend origin for callback redirect
+    const url = new URL(request.url);
+    const requestedOrigin = url.searchParams.get('origin');
+    const frontendOrigin = (requestedOrigin && ALLOWED_ORIGINS.includes(requestedOrigin))
+      ? requestedOrigin
+      : env.FRONTEND_URL || 'https://lucaverse.com';
+
+    _debugLog('🌐 Frontend origin for callback:', frontendOrigin);
+
     // SECURITY: Generate OAuth state parameter for CSRF protection
     const state = crypto.randomUUID();
-    
-    // Store state in KV for validation (expires in 10 minutes)
-    await env.OAUTH_SESSIONS.put(`state_${state}`, Date.now().toString(), {
+
+    // Store state + frontend origin in KV for callback (expires in 10 minutes)
+    await env.OAUTH_SESSIONS.put(`state_${state}`, JSON.stringify({
+      createdAt: Date.now(),
+      frontendOrigin
+    }), {
       expirationTtl: 600 // 10 minutes
     });
-    
+
     const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
     authUrl.searchParams.set('client_id', googleClientId);
     authUrl.searchParams.set('redirect_uri', redirectUri);
@@ -139,13 +170,13 @@ async function handleGoogleAuth(env) {
     authUrl.searchParams.set('scope', 'openid profile email');
     authUrl.searchParams.set('access_type', 'offline');
     authUrl.searchParams.set('state', state); // CSRF protection
-    
+
     const finalUrl = authUrl.toString();
-    console.log('🚀 Final Google OAuth URL:', finalUrl);
-    
-    console.log('✅ Creating redirect response');
+    _debugLog('🚀 Final Google OAuth URL:', finalUrl);
+
+    _debugLog('✅ Creating redirect response');
     return Response.redirect(finalUrl, 302);
-    
+
   } catch (error) {
     console.error('💥 handleGoogleAuth error:', error.message);
     console.error('📚 Stack trace:', error.stack);
@@ -164,18 +195,29 @@ async function handleGoogleCallback(request, env) {
   if (!state) {
     return Response.redirect(`${env.FRONTEND_URL}/oauth-callback.html?error=invalid_state`, 302);
   }
-  
+
   // Verify state parameter exists and is valid
-  const storedState = await env.OAUTH_SESSIONS.get(`state_${state}`);
-  if (!storedState) {
+  const storedStateRaw = await env.OAUTH_SESSIONS.get(`state_${state}`);
+  if (!storedStateRaw) {
     return Response.redirect(`${env.FRONTEND_URL}/oauth-callback.html?error=invalid_state`, 302);
   }
-  
+
+  // Parse stored state — extract frontend origin for callback redirect
+  let frontendUrl = env.FRONTEND_URL || 'https://lucaverse.com';
+  try {
+    const storedState = JSON.parse(storedStateRaw);
+    if (storedState.frontendOrigin && ALLOWED_ORIGINS.includes(storedState.frontendOrigin)) {
+      frontendUrl = storedState.frontendOrigin;
+    }
+  } catch {
+    // Legacy format (plain timestamp string) — use default FRONTEND_URL
+  }
+
   // Clean up used state
   await env.OAUTH_SESSIONS.delete(`state_${state}`);
-  
+
   if (error || !code) {
-    return Response.redirect(`${env.FRONTEND_URL}/oauth-callback.html?error=auth_failed`, 302);
+    return Response.redirect(`${frontendUrl}/oauth-callback.html?error=auth_failed`, 302);
   }
 
   try {
@@ -212,7 +254,7 @@ async function handleGoogleCallback(request, env) {
     // Check if user is whitelisted
     const isWhitelisted = await checkWhitelist(userInfo.email, env);
     if (!isWhitelisted) {
-      return Response.redirect(`${env.FRONTEND_URL}/oauth-callback.html?error=not_authorized`, 302);
+      return Response.redirect(`${frontendUrl}/oauth-callback.html?error=not_authorized`, 302);
     }
 
     // Create session
@@ -237,34 +279,23 @@ async function handleGoogleCallback(request, env) {
       expirationTtl: 7 * 24 * 60 * 60, // 7 days in seconds
     });
 
-    // SECURITY: Use secure POST method instead of URL parameters for tokens
-    const redirectUrl = new URL(`${env.FRONTEND_URL}/oauth-callback.html`);
-    
-    // Create secure session cookie instead of URL params
-    const cookieOptions = [
-      `auth_session=${sessionId}`,
-      `Max-Age=${7 * 24 * 60 * 60}`, // 7 days
-      'HttpOnly',
-      'Secure',
-      'SameSite=Strict',
-      `Domain=${new URL(env.FRONTEND_URL).hostname}`
-    ].join('; ');
-    
-    const cookieToken = [
-      `auth_token=${sessionToken}`,
-      `Max-Age=${7 * 24 * 60 * 60}`, // 7 days
-      'HttpOnly',
-      'Secure', 
-      'SameSite=Strict',
-      `Domain=${new URL(env.FRONTEND_URL).hostname}`
-    ].join('; ');
-    
-    // SECURITY: Use URL parameter redirect to oauth-callback.html for PostMessage handling
-    return Response.redirect(`${env.FRONTEND_URL}/oauth-callback.html?token=${sessionToken}&session=${sessionId}`, 302);
-    
+    // SECURITY: Use short-lived exchange code instead of raw tokens in URL
+    // This prevents session credentials from leaking via browser history, Referer headers, and server logs
+    const exchangeCode = crypto.randomUUID();
+    await env.OAUTH_SESSIONS.put(`exchange_${exchangeCode}`, JSON.stringify({
+      sessionId,
+      sessionToken
+    }), {
+      expirationTtl: 60 // 60 seconds — single-use
+    });
+
+    // Redirect with opaque exchange code and auth API URL for the exchange call
+    const callbackUrl = `${frontendUrl}/oauth-callback.html?code=${exchangeCode}&api=${encodeURIComponent(env.WORKER_URL)}`;
+    return Response.redirect(callbackUrl, 302);
+
   } catch (error) {
     console.error('OAuth callback error:', error);
-    return Response.redirect(`${env.FRONTEND_URL}/oauth-callback.html?error=auth_failed`, 302);
+    return Response.redirect(`${frontendUrl}/oauth-callback.html?error=auth_failed`, 302);
   }
 }
 
@@ -274,10 +305,10 @@ async function handleVerifySession(request, env, corsHeaders) {
   const sessionId = url.searchParams.get('session');
   const token = url.searchParams.get('token');
   
-  console.log('🔍 Verify session request:', { sessionId: sessionId ? 'present' : 'missing', token: token ? 'present' : 'missing' });
+  _debugLog('🔍 Verify session request:', { sessionId: sessionId ? 'present' : 'missing', token: token ? 'present' : 'missing' });
   
   if (!sessionId || !token) {
-    console.log('❌ Missing parameters');
+    _debugLog('❌ Missing parameters');
     return new Response(JSON.stringify({ valid: false, error: 'Missing parameters' }), {
       status: 400,
       headers: { 
@@ -292,11 +323,11 @@ async function handleVerifySession(request, env, corsHeaders) {
   }
 
   try {
-    console.log('🔍 Looking up session:', sessionId);
+    _debugLog('🔍 Looking up session:', sessionId);
     const sessionData = await env.OAUTH_SESSIONS.get(sessionId);
     
     if (!sessionData) {
-      console.log('❌ Session not found in KV');
+      _debugLog('❌ Session not found in KV');
       return new Response(JSON.stringify({ valid: false, error: 'Session not found' }), {
         status: 404,
         headers: { 
@@ -310,13 +341,13 @@ async function handleVerifySession(request, env, corsHeaders) {
       });
     }
 
-    console.log('✅ Session data found, parsing...');
+    _debugLog('✅ Session data found, parsing...');
     const session = JSON.parse(sessionData);
     
     // Check if session is expired
-    console.log('🕐 Checking expiry:', { now: Date.now(), expires: session.expiresAt });
+    _debugLog('🕐 Checking expiry:', { now: Date.now(), expires: session.expiresAt });
     if (Date.now() > session.expiresAt) {
-      console.log('❌ Session expired');
+      _debugLog('❌ Session expired');
       await env.OAUTH_SESSIONS.delete(sessionId);
       return new Response(JSON.stringify({ valid: false, error: 'Session expired' }), {
         status: 401,
@@ -332,16 +363,16 @@ async function handleVerifySession(request, env, corsHeaders) {
     }
 
     // SECURITY: Use timing-safe comparison to prevent timing attacks
-    console.log('🔐 Comparing tokens...', { sessionTokenType: typeof session.token, tokenType: typeof token });
+    _debugLog('🔐 Comparing tokens...', { sessionTokenType: typeof session.token, tokenType: typeof token });
     if (!timingSafeEqual(session.token, token)) {
-      console.log('❌ Token mismatch');
+      _debugLog('❌ Token mismatch');
       return new Response(JSON.stringify({ valid: false, error: 'Invalid token' }), {
         status: 401,
         headers: { 'Content-Type': 'application/json', ...corsHeaders }
       });
     }
 
-    console.log('✅ Session verification successful');
+    _debugLog('✅ Session verification successful');
     return new Response(JSON.stringify({ 
       valid: true, 
       user: session.user 
@@ -360,7 +391,8 @@ async function handleVerifySession(request, env, corsHeaders) {
   } catch (error) {
     console.error('💥 Session verification error:', error.message);
     console.error('📚 Stack trace:', error.stack);
-    return new Response(JSON.stringify({ valid: false, error: 'Verification failed', details: error.message }), {
+    // SECURITY: Never expose error.message to clients (information disclosure)
+    return new Response(JSON.stringify({ valid: false, error: 'Verification failed' }), {
       status: 500,
       headers: {
         'Content-Type': 'application/json',
@@ -390,6 +422,48 @@ async function handleLogout(request, env) {
   return new Response(JSON.stringify({ success: true }), {
     headers: { 'Content-Type': 'application/json' }
   });
+}
+
+// Exchange short-lived code for session credentials (S1: prevents token leakage via URL)
+async function handleExchangeCode(request, env, corsHeaders) {
+  const url = new URL(request.url);
+  const code = url.searchParams.get('code');
+
+  if (!code) {
+    return new Response(JSON.stringify({ error: 'Missing exchange code' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
+  }
+
+  try {
+    const stored = await env.OAUTH_SESSIONS.get(`exchange_${code}`);
+    if (!stored) {
+      return new Response(JSON.stringify({ error: 'Invalid or expired code' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
+      });
+    }
+
+    // Single-use: delete immediately
+    await env.OAUTH_SESSIONS.delete(`exchange_${code}`);
+
+    const { sessionId, sessionToken } = JSON.parse(stored);
+    return new Response(JSON.stringify({ sessionId, token: sessionToken }), {
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-store',
+        'X-Content-Type-Options': 'nosniff',
+        ...corsHeaders
+      }
+    });
+  } catch (error) {
+    console.error('Exchange code error:', error.message);
+    return new Response(JSON.stringify({ error: 'Exchange failed' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
+  }
 }
 
 // Check if user email is whitelisted

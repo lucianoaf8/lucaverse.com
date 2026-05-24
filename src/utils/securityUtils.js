@@ -39,11 +39,16 @@ const XSS_PATTERNS = [
   /vbscript:/gi
 ];
 
-// SQL injection patterns (matches server-side)
+// SQL injection patterns — detect multi-keyword attack signatures, not single words
+// SECURITY: Narrowed to compound patterns to avoid false positives on normal input
 const SQL_PATTERNS = [
-  /(\bUNION\b|\bSELECT\b|\bINSERT\b|\bUPDATE\b|\bDELETE\b|\bDROP\b|\bCREATE\b|\bALTER\b)/gi,
-  /('|(\\')|(;)|(\\;)|(\|)|(\*)|(%)|(<)|(>)|(\{)|(\})|(\[)|(\])|(\()|(\)))/g,
-  /(exec|execute|sp_|xp_)/gi
+  /\bUNION\b[\s/*]+\bSELECT\b/gi,
+  /\b(DROP|ALTER|CREATE)\b[\s/*]+\b(TABLE|DATABASE|INDEX)\b/gi,
+  /\b(INSERT|UPDATE|DELETE)\b[\s/*]+\b(INTO|FROM|SET)\b/gi,
+  /;\s*\b(DROP|DELETE|UPDATE|INSERT|CREATE|ALTER)\b/gi,
+  /--\s|\/\*|\*\/|#.*$/gm,
+  /\b(exec|execute)\b\s*\(/gi,
+  /\b(sp_|xp_)\w+/gi
 ];
 
 /**

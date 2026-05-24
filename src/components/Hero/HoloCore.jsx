@@ -11,10 +11,17 @@ import { RiRouterFill } from 'react-icons/ri';
 
 const AVATAR_SRC = '/avatars/luca-avatar.png';
 const AVATAR_ALT = 'Luca Avatar';
-const AVATAR_SIZE = 740;
 const ICON_SIZE = 38;
 const MIN_ORBIT_PADDING = 20;
-const ORBIT_CONTAINER_SIZE = 900;
+
+// Responsive defaults — scaled down on small viewports
+function getResponsiveSizes() {
+  const vw = typeof window !== 'undefined' ? window.innerWidth : 1200;
+  if (vw <= 576) return { avatarSize: 320, orbitContainerSize: 400 };
+  if (vw <= 768) return { avatarSize: 440, orbitContainerSize: 560 };
+  if (vw <= 992) return { avatarSize: 580, orbitContainerSize: 720 };
+  return { avatarSize: 740, orbitContainerSize: 900 };
+}
 
 const orbitIcons = [
   { name: 'Python', icon: FaPython },
@@ -31,21 +38,25 @@ const orbitIcons = [
 
 const HoloCore = () => {
   const orbitRef = useRef(null);
-  const [orbitRadius, setOrbitRadius] = useState((ORBIT_CONTAINER_SIZE / 2) - ICON_SIZE - MIN_ORBIT_PADDING);
-  const [orbitSize, setOrbitSize] = useState(ORBIT_CONTAINER_SIZE);
+  const initial = getResponsiveSizes();
+  const [avatarSize, setAvatarSize] = useState(initial.avatarSize);
+  const [orbitRadius, setOrbitRadius] = useState((initial.orbitContainerSize / 2) - ICON_SIZE - MIN_ORBIT_PADDING);
+  const [orbitSize, setOrbitSize] = useState(initial.orbitContainerSize);
   const [orbitRotation, setOrbitRotation] = useState(0);
 
   useEffect(() => {
     function updateOrbit() {
+      const sizes = getResponsiveSizes();
       const vw = window.innerWidth;
       const vh = window.innerHeight;
       const maxPossibleRadius = Math.min(
         (vw / 2) - ICON_SIZE - MIN_ORBIT_PADDING,
         (vh / 2) - ICON_SIZE - MIN_ORBIT_PADDING
       );
-      const finalRadius = Math.min((ORBIT_CONTAINER_SIZE / 2) - ICON_SIZE - MIN_ORBIT_PADDING, maxPossibleRadius);
+      const finalRadius = Math.min((sizes.orbitContainerSize / 2) - ICON_SIZE - MIN_ORBIT_PADDING, maxPossibleRadius);
       setOrbitRadius(finalRadius);
-      setOrbitSize(ORBIT_CONTAINER_SIZE);
+      setOrbitSize(sizes.orbitContainerSize);
+      setAvatarSize(sizes.avatarSize);
     }
     updateOrbit();
     window.addEventListener('resize', updateOrbit);
@@ -69,12 +80,12 @@ const HoloCore = () => {
 
   return (
     <div className={styles.holoCoreContainer}>
-      <div className={styles.holoCoreWrapper} style={{ width: AVATAR_SIZE, height: AVATAR_SIZE, top: 'calc(50% + 55px)' }}>
+      <div className={styles.holoCoreWrapper} style={{ width: avatarSize, height: avatarSize, top: 'calc(50% + 55px)' }}>
         <img
           src={AVATAR_SRC}
           alt={AVATAR_ALT}
-          width={AVATAR_SIZE}
-          height={AVATAR_SIZE}
+          width={avatarSize}
+          height={avatarSize}
         />
       </div>
       <div className={styles.orbitContainerWrapper}>

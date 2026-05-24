@@ -304,10 +304,26 @@ h1 {
 }
 
 @media (max-width: 768px) {
+  .heroGrid {
+    display: flex;
+    flex-direction: column;
+    height: auto;
+    padding: 0 5%;
+  }
+  /* Show HoloCore above text on mobile */
+  .holoContainer {
+    order: -1;
+    height: 280px;
+    min-height: 200px;
+    flex: 0 0 auto;
+    opacity: 0.85;
+    margin-top: 80px;
+  }
   .heroContent {
     text-align: center;
     margin: 0 auto;
-    padding-top: 80px;
+    padding-top: 16px;
+    flex: 0 0 auto;
   }
   .subtitle {
     max-width: 100%;
@@ -324,9 +340,6 @@ h1 {
   .tagline::before {
     display: none;
   }
-  .holoContainer {
-    display: none;
-  }
 }
 
 @media (max-width: 576px) {
@@ -337,5 +350,15 @@ h1 {
     height: auto;
     min-height: 100vh;
     padding: 120px 0 60px;
+  }
+  /* R6: Stack buttons vertically on narrow screens */
+  .btnGroup {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+  .btn {
+    justify-content: center;
+    width: 100%;
   }
 }

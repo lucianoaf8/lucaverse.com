@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'; frame-ancestors 'self';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://lucaverse-auth.lucianoaf8.workers.dev; object-src 'none'; base-uri 'self'; frame-ancestors 'self';">
     <title>Authentication Complete</title>
     <style>
         body {
@@ -42,50 +42,73 @@
     </div>
     
     <script>
-        // Extract tokens from URL parameters
+        // SECURITY: Read auth API URL from query param (set by auth worker redirect)
+        // Validate against allowlist to prevent open-redirect attacks
+        const ALLOWED_APIS = [
+            'https://lucaverse-auth.lucianoaf8.workers.dev',
+            'http://localhost:8787'
+        ];
         const urlParams = new URLSearchParams(window.location.search);
-        const token = urlParams.get('token');
-        const sessionId = urlParams.get('session');
+        const apiParam = urlParams.get('api');
+        const AUTH_API = (apiParam && ALLOWED_APIS.includes(apiParam))
+            ? apiParam
+            : 'https://lucaverse-auth.lucianoaf8.workers.dev';
+        const exchangeCode = urlParams.get('code');
         const error = urlParams.get('error');
-        
+
+        function closePopup() {
+            setTimeout(() => {
+                try { window.close(); } catch (e) {
+                    console.debug('Popup self-close blocked by COOP policy');
+                }
+            }, 2000);
+        }
+
+        function sendToParent(msg) {
+            // Primary: BroadcastChannel (works even when window.opener is severed by COOP)
+            try {
+                const bc = new BroadcastChannel('lucaverse_oauth');
+                bc.postMessage(msg);
+                bc.close();
+            } catch (e) {
+                console.debug('BroadcastChannel unavailable:', e);
+            }
+            // Fallback: postMessage (may fail if COOP severed window.opener)
+            if (window.opener) {
+                try {
+                    window.opener.postMessage(msg, window.location.origin);
+                } catch (e) {
+                    console.debug('postMessage fallback failed:', e);
+                }
+            }
+        }
+
         if (error) {
-            // Send error to parent window
-            if (window.opener) {
-                window.opener.postMessage({
-                    type: 'OAUTH_ERROR',
-                    error: error
-                }, window.location.origin);
-            }
-            
-            // Wait longer before self-closing to ensure PostMessage completes
-            setTimeout(() => {
-                try {
-                    window.close();
-                } catch (error) {
-                    // Silently handle COOP policy errors - popup will close naturally or be closed by parent
-                    console.debug('Popup self-close blocked by COOP policy');
+            sendToParent({ type: 'OAUTH_ERROR', error: error });
+            closePopup();
+
+        } else if (exchangeCode) {
+            // SECURITY: Exchange short-lived code for actual credentials via secure POST
+            fetch(AUTH_API + '/auth/exchange?code=' + encodeURIComponent(exchangeCode), {
+                credentials: 'include'
+            })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (data.sessionId && data.token) {
+                    sendToParent({
+                        type: 'OAUTH_SUCCESS',
+                        token: data.token,
+                        sessionId: data.sessionId
+                    });
+                } else {
+                    sendToParent({ type: 'OAUTH_ERROR', error: data.error || 'exchange_failed' });
                 }
-            }, 2000);
-            
-        } else if (token && sessionId) {
-            // Send successful authentication to parent window
-            if (window.opener) {
-                window.opener.postMessage({
-                    type: 'OAUTH_SUCCESS',
-                    token: token,
-                    sessionId: sessionId
-                }, window.location.origin);
-            }
-            
-            // Wait longer before self-closing to ensure PostMessage completes and parent processes it
-            setTimeout(() => {
-                try {
-                    window.close();
-                } catch (error) {
-                    // Silently handle COOP policy errors - popup will close naturally or be closed by parent
-                    console.debug('Popup self-close blocked by COOP policy');
-                }
-            }, 2000);
+                closePopup();
+            })
+            .catch(function() {
+                sendToParent({ type: 'OAUTH_ERROR', error: 'exchange_failed' });
+                closePopup();
+            });
         }
     </script>
 </body>

@@ -9,7 +9,7 @@
 
 .holoCoreWrapper {
   position: absolute;
-  top: calc(50% + 45x);
+  top: calc(50% + 45px);
   left: 45%;
   transform: translate(-50%, -50%);
   z-index: 3;
@@ -141,6 +141,46 @@
 
 @media (max-width: 768px) {
   .holoCoreContainer {
-    display: none;
+    width: 280px;
+    height: 280px;
+    margin: 0 auto;
+  }
+  .holoCoreWrapper {
+    width: 280px !important;
+    height: 280px !important;
+    left: 50%;
+    top: 50%;
+  }
+  .orbitContainer {
+    width: 260px;
+    height: 260px;
+    left: 50%;
+    top: 50%;
+  }
+  .stackIcon {
+    width: 44px;
+    height: 44px;
+  }
+  .iconName {
+    font-size: 9px;
+  }
+}
+
+@media (max-width: 576px) {
+  .holoCoreContainer {
+    width: 240px;
+    height: 240px;
+  }
+  .holoCoreWrapper {
+    width: 240px !important;
+    height: 240px !important;
+  }
+  .orbitContainer {
+    width: 220px;
+    height: 220px;
+  }
+  .stackIcon {
+    width: 38px;
+    height: 38px;
   }
 }
