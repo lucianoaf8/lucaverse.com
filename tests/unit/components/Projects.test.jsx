@@ -7,25 +7,25 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import Projects from '../../../src/components/Projects/Projects';
 
-// Mock react-i18next
+// Mock react-i18next — use keys that match the real component
 const mockTranslations = {
-  projectsTitle: 'Projects',
+  myProjects: 'My Projects',
   projectsSubtitle: 'Explore my latest work and innovations',
   audioTranscriptionTitle: 'Audio Transcription Tool',
   screenScrapeTitle: 'Screen Scrape Dashboard',
-  workflowAutomationTitle: 'Workflow Automation Suite',
+  financeAnalysisTitle: 'Finance Analysis',
   audioTranscriptionDescription: 'Advanced audio transcription using OpenAI Whisper API',
   screenScrapeDescription: 'Web scraping tool for movie data collection',
-  workflowAutomationDescription: 'Automated workflow solutions for business processes',
+  financeAnalysisDescription: 'Finance deep analysis using data tools',
   'tags.openAI': 'OpenAI',
   'tags.whisper': 'Whisper',
   'tags.audio': 'Audio',
   'tags.webScraping': 'Web Scraping',
   'tags.tmdb': 'TMDB',
   'tags.database': 'Database',
-  'tags.automation': 'Automation',
-  'tags.workflow': 'Workflow',
-  'tags.python': 'Python',
+  'tags.finance': 'Finance',
+  'tags.dataAnalysis': 'Data Analysis',
+  'tags.banking': 'Banking',
   viewOnGithub: 'View on GitHub',
   liveDemo: 'Live Demo',
 };
@@ -69,13 +69,14 @@ describe('Projects Component', () => {
     it('renders the projects section with correct structure', () => {
       render(<Projects />);
 
-      expect(screen.getByText('Projects')).toBeInTheDocument();
+      // Component uses 'myProjects' key which resolves to 'My Projects'
+      expect(screen.getByText('My Projects')).toBeInTheDocument();
       expect(screen.getByText('Explore my latest work and innovations')).toBeInTheDocument();
     });
 
     it('has correct section ID for navigation', () => {
       const { container } = render(<Projects />);
-      
+
       const section = container.querySelector('section');
       expect(section).toHaveAttribute('id', 'projects');
     });
@@ -85,10 +86,10 @@ describe('Projects Component', () => {
     it('renders all project cards', () => {
       render(<Projects />);
 
-      // Check for project titles
+      // Check for project titles (project 3 is Finance Analysis, not Workflow Automation)
       expect(screen.getByText('Audio Transcription Tool')).toBeInTheDocument();
       expect(screen.getByText('Screen Scrape Dashboard')).toBeInTheDocument();
-      expect(screen.getByText('Workflow Automation Suite')).toBeInTheDocument();
+      expect(screen.getByText('Finance Analysis')).toBeInTheDocument();
     });
 
     it('displays project descriptions', () => {
@@ -96,7 +97,7 @@ describe('Projects Component', () => {
 
       expect(screen.getByText('Advanced audio transcription using OpenAI Whisper API')).toBeInTheDocument();
       expect(screen.getByText('Web scraping tool for movie data collection')).toBeInTheDocument();
-      expect(screen.getByText('Automated workflow solutions for business processes')).toBeInTheDocument();
+      expect(screen.getByText('Finance deep analysis using data tools')).toBeInTheDocument();
     });
 
     it('shows project tags', () => {
@@ -133,7 +134,7 @@ describe('Projects Component', () => {
 
       // Each project should have title, description, tags, and links
       const projectCards = screen.getAllByTestId(/^project-card-/);
-      
+
       projectCards.forEach(card => {
         expect(card.querySelector('h3')).toBeInTheDocument(); // title
         expect(card.querySelector('p')).toBeInTheDocument(); // description
@@ -147,7 +148,8 @@ describe('Projects Component', () => {
     it('uses translation keys for section headers', () => {
       render(<Projects />);
 
-      expect(screen.getByText('Projects')).toBeInTheDocument();
+      // Component uses 'myProjects' key (not 'projectsTitle')
+      expect(screen.getByText('My Projects')).toBeInTheDocument();
       expect(screen.getByText('Explore my latest work and innovations')).toBeInTheDocument();
     });
 
@@ -156,7 +158,7 @@ describe('Projects Component', () => {
 
       expect(screen.getByText('Audio Transcription Tool')).toBeInTheDocument();
       expect(screen.getByText('Screen Scrape Dashboard')).toBeInTheDocument();
-      expect(screen.getByText('Workflow Automation Suite')).toBeInTheDocument();
+      expect(screen.getByText('Finance Analysis')).toBeInTheDocument();
     });
 
     it('translates project tags', () => {
@@ -173,7 +175,7 @@ describe('Projects Component', () => {
       render(<Projects />);
 
       const mainHeading = screen.getByRole('heading', { level: 2 });
-      expect(mainHeading).toHaveTextContent('Projects');
+      expect(mainHeading).toHaveTextContent('My Projects');
     });
 
     it('renders project cards in a grid layout', () => {

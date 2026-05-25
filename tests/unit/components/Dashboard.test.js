@@ -36,6 +36,11 @@ describe('Dashboard Component', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockLogout.mockClear();
+    // Re-setup default implementations after clearAllMocks
+    const { sanitizeOAuthUserData, safeRender, isValidImageUrl } = require('../../../src/utils/securityUtils');
+    sanitizeOAuthUserData.mockImplementation((user) => user);
+    safeRender.mockImplementation((value, fallback) => value || fallback);
+    isValidImageUrl.mockImplementation((url) => url && url.startsWith('https://'));
   });
 
   describe('Loading State', () => {
@@ -49,7 +54,10 @@ describe('Dashboard Component', () => {
       render(<Dashboard />);
 
       expect(screen.getByText('Loading...')).toBeInTheDocument();
-      expect(screen.getByRole('generic')).toHaveClass('dashboardLoading');
+      // The loading container is the outermost div with dashboardLoading class
+      const loadingText = screen.getByText('Loading...');
+      const outerContainer = loadingText.closest('.dashboardLoading');
+      expect(outerContainer).toBeInTheDocument();
     });
 
     it('displays loading spinner with correct structure', () => {
@@ -63,7 +71,7 @@ describe('Dashboard Component', () => {
 
       const loadingContainer = screen.getByText('Loading...').parentElement;
       expect(loadingContainer).toHaveClass('loadingContainer');
-      
+
       const spinner = loadingContainer.querySelector('.spinner');
       expect(spinner).toBeInTheDocument();
     });
@@ -169,6 +177,14 @@ describe('Dashboard Component', () => {
   });
 
   describe('User Avatar Display', () => {
+    beforeEach(() => {
+      mockUseAuth.mockReturnValue({
+        user: mockUser,
+        loading: false,
+        logout: mockLogout,
+      });
+    });
+
     it('displays user image when valid URL is provided', () => {
       render(<Dashboard />);
 
@@ -197,15 +213,14 @@ describe('Dashboard Component', () => {
       render(<Dashboard />);
 
       const avatar = screen.getByAltText('John Doe');
-      
+
       // Simulate image load error
       fireEvent.error(avatar);
-      
+
       expect(avatar.style.display).toBe('none');
     });
 
     it('shows default avatar when image URL is invalid', () => {
-      // Mock isValidImageUrl to return false
       const { isValidImageUrl } = require('../../../src/utils/securityUtils');
       isValidImageUrl.mockReturnValue(false);
 
@@ -224,9 +239,22 @@ describe('Dashboard Component', () => {
   });
 
   describe('Security Features', () => {
+    beforeEach(() => {
+      mockUseAuth.mockReturnValue({
+        user: mockUser,
+        loading: false,
+        logout: mockLogout,
+      });
+      // Ensure clean mock state for each security test
+      const { sanitizeOAuthUserData, safeRender, isValidImageUrl } = require('../../../src/utils/securityUtils');
+      sanitizeOAuthUserData.mockImplementation((user) => user);
+      safeRender.mockImplementation((value, fallback) => value || fallback);
+      isValidImageUrl.mockImplementation((url) => url && url.startsWith('https://'));
+    });
+
     it('calls sanitizeOAuthUserData for user data', () => {
       const { sanitizeOAuthUserData } = require('../../../src/utils/securityUtils');
-      
+
       render(<Dashboard />);
 
       expect(sanitizeOAuthUserData).toHaveBeenCalledWith(mockUser);
@@ -234,7 +262,7 @@ describe('Dashboard Component', () => {
 
     it('uses safeRender for displaying user data', () => {
       const { safeRender } = require('../../../src/utils/securityUtils');
-      
+
       render(<Dashboard />);
 
       expect(safeRender).toHaveBeenCalledWith(mockUser.name, 'User');
@@ -244,7 +272,7 @@ describe('Dashboard Component', () => {
 
     it('validates image URLs before displaying', () => {
       const { isValidImageUrl } = require('../../../src/utils/securityUtils');
-      
+
       render(<Dashboard />);
 
       expect(isValidImageUrl).toHaveBeenCalledWith(mockUser.picture);
@@ -260,7 +288,7 @@ describe('Dashboard Component', () => {
 
       render(<Dashboard />);
 
-      // Should use fallback values from safeRender
+      // safeRender(null, 'User') returns 'User' from the mock
       expect(screen.getByText('Welcome to the Lucaverse, User!')).toBeInTheDocument();
     });
   });
@@ -309,7 +337,7 @@ describe('Dashboard Component', () => {
 
       const featuresGrid = container.querySelector('.featuresGrid');
       expect(featuresGrid).toBeInTheDocument();
-      
+
       const featureCards = container.querySelectorAll('.featureCard');
       expect(featureCards).toHaveLength(3);
     });
@@ -331,7 +359,7 @@ describe('Dashboard Component', () => {
     it('handles user without permissions array', () => {
       const userWithoutPermissionsArray = { ...mockUser };
       delete userWithoutPermissionsArray.permissions;
-      
+
       mockUseAuth.mockReturnValue({
         user: userWithoutPermissionsArray,
         loading: false,
@@ -344,11 +372,11 @@ describe('Dashboard Component', () => {
     });
 
     it('handles very long user names', () => {
-      const userWithLongName = { 
-        ...mockUser, 
+      const userWithLongName = {
+        ...mockUser,
         name: 'A'.repeat(100) // Very long name
       };
-      
+
       mockUseAuth.mockReturnValue({
         user: userWithLongName,
         loading: false,

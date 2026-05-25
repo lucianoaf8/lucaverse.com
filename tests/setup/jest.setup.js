@@ -82,14 +82,24 @@ process.env.NODE_ENV = 'test';
 const { TextEncoder, TextDecoder } = require('util');
 global.TextEncoder = TextEncoder;
 global.TextDecoder = TextDecoder;
-global.crypto = {
-  getRandomValues: (arr) => {
-    for (let i = 0; i < arr.length; i++) {
-      arr[i] = Math.floor(Math.random() * 256);
-    }
+// Augment (don't replace) global.crypto so that:
+//  - crypto.randomUUID() is available for Cloudflare Worker code under test
+//  - crypto.getRandomValues() works for token generation
+//  - Any platform-provided crypto properties are preserved
+const nodeCrypto = require('crypto');
+if (!global.crypto) {
+  global.crypto = {};
+}
+if (typeof global.crypto.randomUUID !== 'function') {
+  global.crypto.randomUUID = () => nodeCrypto.randomUUID();
+}
+if (typeof global.crypto.getRandomValues !== 'function') {
+  global.crypto.getRandomValues = (arr) => {
+    const bytes = nodeCrypto.randomBytes(arr.length);
+    for (let i = 0; i < arr.length; i++) arr[i] = bytes[i];
     return arr;
-  }
-};
+  };
+}
 
 // Mock Cloudflare Worker globals for integration tests
 class MockRequest {
@@ -180,20 +190,22 @@ global.IntersectionObserver = jest.fn().mockImplementation(() => ({
   disconnect: jest.fn(),
 }));
 
-// Mock window.matchMedia for responsive components
-Object.defineProperty(window, 'matchMedia', {
-  writable: true,
-  value: jest.fn().mockImplementation(query => ({
-    matches: false,
-    media: query,
-    onchange: null,
-    addListener: jest.fn(), // deprecated
-    removeListener: jest.fn(), // deprecated
-    addEventListener: jest.fn(),
-    removeEventListener: jest.fn(),
-    dispatchEvent: jest.fn(),
-  })),
-});
+// Mock window.matchMedia for responsive components (jsdom environment only)
+if (typeof window !== 'undefined') {
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: jest.fn().mockImplementation(query => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: jest.fn(), // deprecated
+      removeListener: jest.fn(), // deprecated
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
+      dispatchEvent: jest.fn(),
+    })),
+  });
+}
 
 // Mock localStorage
 const localStorageMock = {

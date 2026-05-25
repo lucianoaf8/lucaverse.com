@@ -63,21 +63,38 @@ describe('useAuth Hook', () => {
   };
 
   beforeEach(() => {
-    // Reset all mocks
+    // Reset all mocks — clears call counts but not implementations
     jest.clearAllMocks();
     global.fetch = jest.fn();
-    
+
     // Reset URL parameters
     window.location.search = '';
     window.location.pathname = '/';
-    
-    // Reset storage mocks
+
+    // Reset jest.mock implementations to prevent cross-test leakage
     const { secureStorage, SecureCookies, FallbackStorage } = require('../../../src/utils/secureStorage');
+
+    // CRITICAL: Re-set isAvailable to true — may be overridden by previous test
+    secureStorage.isAvailable.mockReturnValue(true);
     secureStorage.secureGetItem.mockResolvedValue(null);
+    secureStorage.secureSetItem.mockResolvedValue(undefined);
+    secureStorage.secureRemoveItem.mockReturnValue(undefined);
+
     SecureCookies.hasAuthCookies.mockReturnValue(false);
+    SecureCookies.get.mockReturnValue(null);
+
     FallbackStorage.getItem.mockReturnValue(null);
-    localStorage.getItem = jest.fn().mockReturnValue(null);
-    sessionStorage.getItem = jest.fn().mockReturnValue(null);
+    FallbackStorage.setItem.mockReturnValue(undefined);
+    FallbackStorage.removeItem.mockReturnValue(undefined);
+
+    // CRITICAL: Reset validateEndpoint — may be set to false by previous test
+    const { validateEndpoint } = require('../../../src/config/api');
+    validateEndpoint.mockReturnValue(true);
+
+    // Use jest.spyOn for Storage (direct property assignment is ignored in modern jsdom)
+    jest.spyOn(Storage.prototype, 'getItem').mockReturnValue(null);
+    jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {});
+    jest.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {});
   });
 
   afterEach(() => {
@@ -89,19 +106,19 @@ describe('useAuth Hook', () => {
       const { result } = renderHook(() => useAuth(), {
         wrapper: HookTestWrapper
       });
-      
+
       expect(result.current.loading).toBe(true);
       expect(result.current.user).toBe(null);
     });
 
     it('processes URL tokens on mount', async () => {
       const mockSecureSetItem = require('../../../src/utils/secureStorage').secureStorage.secureSetItem;
-      
+
       // Mock URL with tokens
       window.location.search = '?token=test-token&session=test-session';
-      
+
       renderHook(() => useAuth(), { wrapper: HookTestWrapper });
-      
+
       await waitFor(() => {
         expect(mockSecureSetItem).toHaveBeenCalledWith('auth_token', 'test-token', { ttl: 7 * 24 * 60 * 60 * 1000 });
         expect(mockSecureSetItem).toHaveBeenCalledWith('session_id', 'test-session', { ttl: 7 * 24 * 60 * 60 * 1000 });
@@ -111,24 +128,24 @@ describe('useAuth Hook', () => {
 
     it('validates existing tokens successfully', async () => {
       const { secureStorage } = require('../../../src/utils/secureStorage');
-      
+
       // Mock existing tokens
       secureStorage.secureGetItem
         .mockResolvedValueOnce('test-token')
         .mockResolvedValueOnce('test-session');
-      
+
       // Mock successful validation
       global.fetch.mockResolvedValue({
         json: async () => ({ valid: true, user: mockUser }),
       });
-      
+
       const { result } = renderHook(() => useAuth(), { wrapper: HookTestWrapper });
-      
+
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
         expect(result.current.user).toEqual(mockUser);
       });
-      
+
       expect(global.fetch).toHaveBeenCalledWith(
         'https://auth.example.com/auth/verify?session=test-session&token=test-token',
         { credentials: 'include' }
@@ -138,46 +155,46 @@ describe('useAuth Hook', () => {
     it('handles invalid tokens by clearing storage', async () => {
       const { secureStorage } = require('../../../src/utils/secureStorage');
       const mockSecureRemoveItem = secureStorage.secureRemoveItem;
-      
+
       // Mock existing tokens
       secureStorage.secureGetItem
         .mockResolvedValueOnce('invalid-token')
         .mockResolvedValueOnce('invalid-session');
-      
+
       // Mock invalid validation
       global.fetch.mockResolvedValue({
         json: async () => ({ valid: false }),
       });
-      
+
       const { result } = renderHook(() => useAuth(), { wrapper: HookTestWrapper });
-      
+
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
         expect(result.current.user).toBe(null);
       });
-      
+
       expect(mockSecureRemoveItem).toHaveBeenCalledWith('auth_token');
       expect(mockSecureRemoveItem).toHaveBeenCalledWith('session_id');
     });
 
     it('falls back to different storage methods when secure storage fails', async () => {
       const { secureStorage, FallbackStorage } = require('../../../src/utils/secureStorage');
-      
+
       // Mock secure storage failure
       secureStorage.isAvailable.mockReturnValue(false);
-      
+
       // Mock fallback storage
       FallbackStorage.getItem
         .mockReturnValueOnce('fallback-token')
         .mockReturnValueOnce('fallback-session');
-      
+
       // Mock successful validation
       global.fetch.mockResolvedValue({
         json: async () => ({ valid: true, user: mockUser }),
       });
-      
+
       const { result } = renderHook(() => useAuth(), { wrapper: HookTestWrapper });
-      
+
       await waitFor(() => {
         expect(result.current.user).toEqual(mockUser);
       });
@@ -186,30 +203,29 @@ describe('useAuth Hook', () => {
     it('migrates from plain storage to secure storage', async () => {
       const { secureStorage } = require('../../../src/utils/secureStorage');
       const mockSecureSetItem = secureStorage.secureSetItem;
-      
-      // Mock plain storage tokens
-      localStorage.getItem = jest.fn()
-        .mockReturnValueOnce('plain-token')
-        .mockReturnValueOnce('plain-session');
-      
-      localStorage.removeItem = jest.fn();
-      sessionStorage.removeItem = jest.fn();
-      
+
+      // Override Storage.prototype.getItem spy to return plain storage tokens
+      jest.spyOn(Storage.prototype, 'getItem').mockImplementation((key) => {
+        if (key === 'auth_token') return 'plain-token';
+        if (key === 'session_id') return 'plain-session';
+        return null;
+      });
+
       // Mock successful validation
       global.fetch.mockResolvedValue({
         json: async () => ({ valid: true, user: mockUser }),
       });
-      
+
       renderHook(() => useAuth(), { wrapper: HookTestWrapper });
-      
+
       await waitFor(() => {
         // Should migrate to secure storage
         expect(mockSecureSetItem).toHaveBeenCalledWith('auth_token', 'plain-token', { ttl: 7 * 24 * 60 * 60 * 1000 });
         expect(mockSecureSetItem).toHaveBeenCalledWith('session_id', 'plain-session', { ttl: 7 * 24 * 60 * 60 * 1000 });
-        
-        // Should clear plain storage
-        expect(localStorage.removeItem).toHaveBeenCalledWith('auth_token');
-        expect(localStorage.removeItem).toHaveBeenCalledWith('session_id');
+
+        // Should clear plain storage (removeItem spy covers both localStorage and sessionStorage)
+        expect(Storage.prototype.removeItem).toHaveBeenCalledWith('auth_token');
+        expect(Storage.prototype.removeItem).toHaveBeenCalledWith('session_id');
       });
     });
   });
@@ -217,24 +233,24 @@ describe('useAuth Hook', () => {
   describe('HttpOnly Cookie Support', () => {
     it('prioritizes httpOnly cookies over other storage', async () => {
       const { SecureCookies } = require('../../../src/utils/secureStorage');
-      
+
       // Mock httpOnly cookies
       SecureCookies.hasAuthCookies.mockReturnValue(true);
       SecureCookies.get
         .mockReturnValueOnce('cookie-token')
         .mockReturnValueOnce('cookie-session');
-      
+
       // Mock successful validation
       global.fetch.mockResolvedValue({
         json: async () => ({ valid: true, user: mockUser }),
       });
-      
+
       const { result } = renderHook(() => useAuth(), { wrapper: HookTestWrapper });
-      
+
       await waitFor(() => {
         expect(result.current.user).toEqual(mockUser);
       });
-      
+
       // Should use cookie values for validation
       expect(global.fetch).toHaveBeenCalledWith(
         'https://auth.example.com/auth/verify?session=cookie-session&token=cookie-token',
@@ -247,44 +263,44 @@ describe('useAuth Hook', () => {
     it('handles network errors during token validation', async () => {
       const { secureStorage } = require('../../../src/utils/secureStorage');
       const { authLogger } = require('../../../src/utils/logger.js');
-      
+
       // Mock existing tokens
       secureStorage.secureGetItem
         .mockResolvedValueOnce('test-token')
         .mockResolvedValueOnce('test-session');
-      
+
       // Mock network error
       global.fetch.mockRejectedValue(new Error('Network error'));
-      
+
       const { result } = renderHook(() => useAuth(), { wrapper: HookTestWrapper });
-      
+
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
         expect(result.current.user).toBe(null);
       });
-      
+
       expect(authLogger.error).toHaveBeenCalledWith('Auth check failed:', expect.any(Error));
     });
 
     it('handles invalid API endpoints', async () => {
       const { validateEndpoint } = require('../../../src/config/api');
       const { secureStorage } = require('../../../src/utils/secureStorage');
-      
+
       // Mock invalid endpoint
       validateEndpoint.mockReturnValue(false);
-      
+
       // Mock existing tokens
       secureStorage.secureGetItem
         .mockResolvedValueOnce('test-token')
         .mockResolvedValueOnce('test-session');
-      
+
       const { result } = renderHook(() => useAuth(), { wrapper: HookTestWrapper });
-      
+
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
         expect(result.current.user).toBe(null);
       });
-      
+
       // Should not make fetch request
       expect(global.fetch).not.toHaveBeenCalled();
     });
@@ -292,17 +308,17 @@ describe('useAuth Hook', () => {
     it('handles storage errors gracefully', async () => {
       const { secureStorage } = require('../../../src/utils/secureStorage');
       const { authLogger } = require('../../../src/utils/logger.js');
-      
+
       // Mock storage error
       secureStorage.secureGetItem.mockRejectedValue(new Error('Storage error'));
-      
+
       const { result } = renderHook(() => useAuth(), { wrapper: HookTestWrapper });
-      
+
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
         expect(result.current.user).toBe(null);
       });
-      
+
       expect(authLogger.error).toHaveBeenCalledWith('Failed to retrieve auth tokens securely:', expect.any(Error));
     });
   });
@@ -311,94 +327,14 @@ describe('useAuth Hook', () => {
     it('performs logout with session cleanup', async () => {
       const { secureStorage } = require('../../../src/utils/secureStorage');
       const mockSecureRemoveItem = secureStorage.secureRemoveItem;
-      
-      // Mock existing session
-      secureStorage.secureGetItem
-        .mockResolvedValueOnce('test-token')
-        .mockResolvedValueOnce('test-session')
-        .mockResolvedValueOnce(null) // for logout call
-        .mockResolvedValueOnce('test-session'); // for logout call
-      
-      // Mock successful validation
-      global.fetch
-        .mockResolvedValueOnce({
-          json: async () => ({ valid: true, user: mockUser }),
-        })
-        .mockResolvedValueOnce({
-          json: async () => ({ success: true }),
-        });
-      
-      const { result } = renderHook(() => useAuth(), { wrapper: HookTestWrapper });
-      
-      // Wait for initial auth
-      await waitFor(() => {
-        expect(result.current.user).toEqual(mockUser);
-      });
-      
-      // Perform logout
-      await act(async () => {
-        await result.current.logout();
-      });
-      
-      // Should call logout endpoint
-      expect(global.fetch).toHaveBeenCalledWith(
-        'https://auth.example.com/auth/logout?session=test-session',
-        { credentials: 'include' }
-      );
-      
-      // Should clear storage
-      expect(mockSecureRemoveItem).toHaveBeenCalledWith('auth_token');
-      expect(mockSecureRemoveItem).toHaveBeenCalledWith('session_id');
-      
-      // Should clear user state
-      expect(result.current.user).toBe(null);
-    });
 
-    it('handles logout errors gracefully', async () => {
-      const { secureStorage } = require('../../../src/utils/secureStorage');
-      const { authLogger } = require('../../../src/utils/logger.js');
-      
-      // Mock existing session
-      secureStorage.secureGetItem
-        .mockResolvedValueOnce('test-token')
-        .mockResolvedValueOnce('test-session')
-        .mockResolvedValueOnce(null) // for logout call
-        .mockResolvedValueOnce('test-session'); // for logout call
-      
-      // Mock successful validation, failed logout
-      global.fetch
-        .mockResolvedValueOnce({
-          json: async () => ({ valid: true, user: mockUser }),
-        })
-        .mockRejectedValueOnce(new Error('Logout failed'));
-      
-      const { result } = renderHook(() => useAuth(), { wrapper: HookTestWrapper });
-      
-      // Wait for initial auth
-      await waitFor(() => {
-        expect(result.current.user).toEqual(mockUser);
+      // Use key-based implementation to return correct values for both initial auth and logout
+      secureStorage.secureGetItem.mockImplementation((key) => {
+        if (key === 'auth_token') return Promise.resolve('test-token');
+        if (key === 'session_id') return Promise.resolve('test-session');
+        return Promise.resolve(null);
       });
-      
-      // Perform logout
-      await act(async () => {
-        await result.current.logout();
-      });
-      
-      // Should log error but still clear local state
-      expect(authLogger.error).toHaveBeenCalledWith('Logout error:', expect.any(Error));
-      expect(result.current.user).toBe(null);
-    });
 
-    it('redirects to home after logout', async () => {
-      const { secureStorage } = require('../../../src/utils/secureStorage');
-      
-      // Mock existing session
-      secureStorage.secureGetItem
-        .mockResolvedValueOnce('test-token')
-        .mockResolvedValueOnce('test-session')
-        .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce('test-session');
-      
       // Mock successful validation and logout
       global.fetch
         .mockResolvedValueOnce({
@@ -407,23 +343,103 @@ describe('useAuth Hook', () => {
         .mockResolvedValueOnce({
           json: async () => ({ success: true }),
         });
-      
-      // Mock window.location.href setter
-      delete window.location;
-      window.location = { href: '' };
-      
+
       const { result } = renderHook(() => useAuth(), { wrapper: HookTestWrapper });
-      
+
       // Wait for initial auth
       await waitFor(() => {
         expect(result.current.user).toEqual(mockUser);
       });
-      
+
       // Perform logout
       await act(async () => {
         await result.current.logout();
       });
-      
+
+      // Should call logout endpoint
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://auth.example.com/auth/logout?session=test-session',
+        { credentials: 'include' }
+      );
+
+      // Should clear storage
+      expect(mockSecureRemoveItem).toHaveBeenCalledWith('auth_token');
+      expect(mockSecureRemoveItem).toHaveBeenCalledWith('session_id');
+
+      // Should clear user state
+      expect(result.current.user).toBe(null);
+    });
+
+    it('handles logout errors gracefully', async () => {
+      const { secureStorage } = require('../../../src/utils/secureStorage');
+      const { authLogger } = require('../../../src/utils/logger.js');
+
+      // Use key-based implementation for consistent token retrieval
+      secureStorage.secureGetItem.mockImplementation((key) => {
+        if (key === 'auth_token') return Promise.resolve('test-token');
+        if (key === 'session_id') return Promise.resolve('test-session');
+        return Promise.resolve(null);
+      });
+
+      // Mock successful validation, failed logout
+      global.fetch
+        .mockResolvedValueOnce({
+          json: async () => ({ valid: true, user: mockUser }),
+        })
+        .mockRejectedValueOnce(new Error('Logout failed'));
+
+      const { result } = renderHook(() => useAuth(), { wrapper: HookTestWrapper });
+
+      // Wait for initial auth
+      await waitFor(() => {
+        expect(result.current.user).toEqual(mockUser);
+      });
+
+      // Perform logout
+      await act(async () => {
+        await result.current.logout();
+      });
+
+      // Should log error but still clear local state
+      expect(authLogger.error).toHaveBeenCalledWith('Logout error:', expect.any(Error));
+      expect(result.current.user).toBe(null);
+    });
+
+    it('redirects to home after logout', async () => {
+      const { secureStorage } = require('../../../src/utils/secureStorage');
+
+      // Use key-based implementation for consistent token retrieval
+      secureStorage.secureGetItem.mockImplementation((key) => {
+        if (key === 'auth_token') return Promise.resolve('test-token');
+        if (key === 'session_id') return Promise.resolve('test-session');
+        return Promise.resolve(null);
+      });
+
+      // Mock successful validation and logout
+      global.fetch
+        .mockResolvedValueOnce({
+          json: async () => ({ valid: true, user: mockUser }),
+        })
+        .mockResolvedValueOnce({
+          json: async () => ({ success: true }),
+        });
+
+      // Mock window.location.href setter
+      delete window.location;
+      window.location = { href: '' };
+
+      const { result } = renderHook(() => useAuth(), { wrapper: HookTestWrapper });
+
+      // Wait for initial auth
+      await waitFor(() => {
+        expect(result.current.user).toEqual(mockUser);
+      });
+
+      // Perform logout
+      await act(async () => {
+        await result.current.logout();
+      });
+
       // Should redirect to home
       expect(window.location.href).toBe('/');
     });
@@ -433,34 +449,33 @@ describe('useAuth Hook', () => {
     it('stores tokens securely with TTL', async () => {
       const { secureStorage } = require('../../../src/utils/secureStorage');
       const mockSecureSetItem = secureStorage.secureSetItem;
-      
+
       // Mock URL with tokens
       window.location.search = '?token=secure-token&session=secure-session';
-      
+
       renderHook(() => useAuth(), { wrapper: HookTestWrapper });
-      
+
       await waitFor(() => {
-        expect(mockSecureSetItem).toHaveBeenCalledWith('auth_token', 'secure-token', { 
-          ttl: 7 * 24 * 60 * 60 * 1000 
+        expect(mockSecureSetItem).toHaveBeenCalledWith('auth_token', 'secure-token', {
+          ttl: 7 * 24 * 60 * 60 * 1000
         });
-        expect(mockSecureSetItem).toHaveBeenCalledWith('session_id', 'secure-session', { 
-          ttl: 7 * 24 * 60 * 60 * 1000 
+        expect(mockSecureSetItem).toHaveBeenCalledWith('session_id', 'secure-session', {
+          ttl: 7 * 24 * 60 * 60 * 1000
         });
       });
     });
 
     it('falls back to obfuscated storage when secure storage unavailable', async () => {
       const { secureStorage, FallbackStorage } = require('../../../src/utils/secureStorage');
-      const { authLogger } = require('../../../src/utils/logger.js');
-      
+
       // Mock secure storage failure
       secureStorage.isAvailable.mockReturnValue(false);
-      
+
       // Mock URL with tokens
       window.location.search = '?token=fallback-token&session=fallback-session';
-      
+
       renderHook(() => useAuth(), { wrapper: HookTestWrapper });
-      
+
       await waitFor(() => {
         expect(FallbackStorage.setItem).toHaveBeenCalledWith('auth_token', 'fallback-token');
         expect(FallbackStorage.setItem).toHaveBeenCalledWith('session_id', 'fallback-session');
@@ -471,18 +486,14 @@ describe('useAuth Hook', () => {
       const { secureStorage, FallbackStorage } = require('../../../src/utils/secureStorage');
       const mockSecureRemoveItem = secureStorage.secureRemoveItem;
       const mockFallbackRemoveItem = FallbackStorage.removeItem;
-      
-      // Mock localStorage and sessionStorage
-      localStorage.removeItem = jest.fn();
-      sessionStorage.removeItem = jest.fn();
-      
-      // Mock existing session
-      secureStorage.secureGetItem
-        .mockResolvedValueOnce('test-token')
-        .mockResolvedValueOnce('test-session')
-        .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce('test-session');
-      
+
+      // Use key-based implementation for consistent token retrieval
+      secureStorage.secureGetItem.mockImplementation((key) => {
+        if (key === 'auth_token') return Promise.resolve('test-token');
+        if (key === 'session_id') return Promise.resolve('test-session');
+        return Promise.resolve(null);
+      });
+
       global.fetch
         .mockResolvedValueOnce({
           json: async () => ({ valid: true, user: mockUser }),
@@ -490,26 +501,25 @@ describe('useAuth Hook', () => {
         .mockResolvedValueOnce({
           json: async () => ({ success: true }),
         });
-      
+
       const { result } = renderHook(() => useAuth(), { wrapper: HookTestWrapper });
-      
+
       await waitFor(() => {
         expect(result.current.user).toEqual(mockUser);
       });
-      
+
       await act(async () => {
         await result.current.logout();
       });
-      
+
       // Should clear all storage types
       expect(mockSecureRemoveItem).toHaveBeenCalledWith('auth_token');
       expect(mockSecureRemoveItem).toHaveBeenCalledWith('session_id');
       expect(mockFallbackRemoveItem).toHaveBeenCalledWith('auth_token');
       expect(mockFallbackRemoveItem).toHaveBeenCalledWith('session_id');
-      expect(localStorage.removeItem).toHaveBeenCalledWith('auth_token');
-      expect(localStorage.removeItem).toHaveBeenCalledWith('session_id');
-      expect(sessionStorage.removeItem).toHaveBeenCalledWith('auth_token');
-      expect(sessionStorage.removeItem).toHaveBeenCalledWith('session_id');
+      // Storage.prototype.removeItem spy covers both localStorage and sessionStorage
+      expect(Storage.prototype.removeItem).toHaveBeenCalledWith('auth_token');
+      expect(Storage.prototype.removeItem).toHaveBeenCalledWith('session_id');
     });
   });
 
@@ -517,14 +527,14 @@ describe('useAuth Hook', () => {
     it('handles missing URL parameters gracefully', async () => {
       // No URL parameters
       window.location.search = '';
-      
+
       const { result } = renderHook(() => useAuth(), { wrapper: HookTestWrapper });
-      
+
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
         expect(result.current.user).toBe(null);
       });
-      
+
       // Should not attempt to store anything
       const { secureStorage } = require('../../../src/utils/secureStorage');
       expect(secureStorage.secureSetItem).not.toHaveBeenCalled();
@@ -533,13 +543,13 @@ describe('useAuth Hook', () => {
     it('handles partial URL parameters', async () => {
       // Only token, no session
       window.location.search = '?token=only-token';
-      
+
       const { result } = renderHook(() => useAuth(), { wrapper: HookTestWrapper });
-      
+
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
       });
-      
+
       // Should not store incomplete auth data
       const { secureStorage } = require('../../../src/utils/secureStorage');
       expect(secureStorage.secureSetItem).not.toHaveBeenCalled();
@@ -547,45 +557,47 @@ describe('useAuth Hook', () => {
 
     it('handles logout without existing session', async () => {
       const { result } = renderHook(() => useAuth(), { wrapper: HookTestWrapper });
-      
+
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
       });
-      
+
       // Should handle logout gracefully even without session
       await act(async () => {
         await result.current.logout();
       });
-      
+
       expect(result.current.user).toBe(null);
     });
 
     it('handles concurrent authentication attempts', async () => {
       const { secureStorage } = require('../../../src/utils/secureStorage');
-      
-      // Mock existing tokens
-      secureStorage.secureGetItem
-        .mockResolvedValue('test-token')
-        .mockResolvedValue('test-session');
-      
+
+      // Use key-based implementation for consistent token retrieval
+      secureStorage.secureGetItem.mockImplementation((key) => {
+        if (key === 'auth_token') return Promise.resolve('test-token');
+        if (key === 'session_id') return Promise.resolve('test-session');
+        return Promise.resolve(null);
+      });
+
       // Mock delayed validation
-      global.fetch.mockImplementation(() => 
-        new Promise(resolve => 
+      global.fetch.mockImplementation(() =>
+        new Promise(resolve =>
           setTimeout(() => resolve({
             json: async () => ({ valid: true, user: mockUser }),
           }), 100)
         )
       );
-      
+
       // Render multiple hooks concurrently
       const { result: result1 } = renderHook(() => useAuth());
       const { result: result2 } = renderHook(() => useAuth());
-      
+
       await waitFor(() => {
         expect(result1.current.loading).toBe(false);
         expect(result2.current.loading).toBe(false);
       });
-      
+
       // Both should have the same user
       expect(result1.current.user).toEqual(mockUser);
       expect(result2.current.user).toEqual(mockUser);
@@ -595,43 +607,43 @@ describe('useAuth Hook', () => {
   describe('Performance', () => {
     it('does not perform unnecessary validation calls', async () => {
       const { secureStorage } = require('../../../src/utils/secureStorage');
-      
+
       // Mock no existing tokens
       secureStorage.secureGetItem.mockResolvedValue(null);
-      
+
       const { rerender } = renderHook(() => useAuth());
-      
+
       await waitFor(() => {
         expect(global.fetch).not.toHaveBeenCalled();
       });
-      
+
       // Re-render should not trigger additional calls
       rerender();
-      
+
       expect(global.fetch).not.toHaveBeenCalled();
     });
 
     it('caches authentication state appropriately', async () => {
       const { secureStorage } = require('../../../src/utils/secureStorage');
-      
+
       // Mock existing tokens
       secureStorage.secureGetItem
         .mockResolvedValueOnce('test-token')
         .mockResolvedValueOnce('test-session');
-      
+
       global.fetch.mockResolvedValue({
         json: async () => ({ valid: true, user: mockUser }),
       });
-      
+
       const { result, rerender } = renderHook(() => useAuth());
-      
+
       await waitFor(() => {
         expect(result.current.user).toEqual(mockUser);
       });
-      
+
       // Re-render should not trigger new validation
       rerender();
-      
+
       expect(global.fetch).toHaveBeenCalledTimes(1);
       expect(result.current.user).toEqual(mockUser);
     });

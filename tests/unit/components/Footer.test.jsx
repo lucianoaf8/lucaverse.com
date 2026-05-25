@@ -7,7 +7,8 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import Footer from '../../../src/components/Footer/Footer';
 
-// Mock react-i18next
+// Mock react-i18next — handle interpolation for copyright key
+const currentYear = new Date().getFullYear();
 const mockTranslations = {
   footerHome: 'Home',
   footerAbout: 'About',
@@ -19,12 +20,18 @@ const mockTranslations = {
   footerQuickLinks: 'Quick Links',
   footerLegalInfo: 'Legal Information',
   footerConnect: 'Connect',
-  footerCopyright: '© 2024 Lucaverse. All rights reserved.',
+  copyright: `© ${currentYear} Lucaverse. All rights reserved.`,
 };
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key, fallback) => mockTranslations[key] || fallback || key,
+    t: (key, options) => {
+      // Handle interpolation: if options has year, substitute it
+      if (key === 'copyright' && options && options.year) {
+        return `© ${options.year} Lucaverse. All rights reserved.`;
+      }
+      return mockTranslations[key] || key;
+    },
   }),
 }));
 
@@ -94,13 +101,13 @@ describe('Footer Component', () => {
 
       // Check for social media links with aria-labels
       const socialLinks = screen.getAllByRole('link');
-      const socialIconLinks = socialLinks.filter(link => 
-        link.getAttribute('aria-label') && 
-        (link.getAttribute('aria-label').includes('GitHub') || 
+      const socialIconLinks = socialLinks.filter(link =>
+        link.getAttribute('aria-label') &&
+        (link.getAttribute('aria-label').includes('GitHub') ||
          link.getAttribute('aria-label').includes('LinkedIn') ||
          link.getAttribute('aria-label').includes('Twitter'))
       );
-      
+
       expect(socialIconLinks.length).toBeGreaterThan(0);
     });
   });
@@ -113,6 +120,13 @@ describe('Footer Component', () => {
       expect(screen.getByText('About')).toBeInTheDocument();
       expect(screen.getByText('Projects')).toBeInTheDocument();
       expect(screen.getByText('Newsletter')).toBeInTheDocument();
+    });
+
+    it('renders copyright with current year via interpolation', () => {
+      render(<Footer />);
+
+      const year = new Date().getFullYear();
+      expect(screen.getByText(`© ${year} Lucaverse. All rights reserved.`)).toBeInTheDocument();
     });
   });
 
