@@ -9,6 +9,7 @@ const CryptoUtils = {
    * Generate a cryptographically secure key
    * @returns {Promise<CryptoKey>} Encryption key
    */
+  /* c8 ignore start -- CryptoUtils.generateKey is never called; key generation uses deriveKey (PBKDF2) instead */
   async generateKey() {
     return await crypto.subtle.generateKey(
       {
@@ -19,6 +20,7 @@ const CryptoUtils = {
       ['encrypt', 'decrypt']
     );
   },
+  /* c8 ignore stop */
 
   /**
    * Derive key from password using PBKDF2

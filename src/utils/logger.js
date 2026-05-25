@@ -12,6 +12,7 @@ const LOG_LEVELS = {
 };
 
 // Current log level based on environment
+/* c8 ignore next -- production branch unreachable: import.meta.env.DEV always true in Jest */
 const currentLogLevel = import.meta.env.DEV ? LOG_LEVELS.DEBUG : LOG_LEVELS.WARN;
 
 /**

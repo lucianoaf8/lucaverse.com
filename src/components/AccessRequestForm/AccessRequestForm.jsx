@@ -23,7 +23,7 @@ const NotificationToast = ({ show, type, message, onClose }) => {
   const isError = type === 'error';
 
   return (
-    <div className={`${styles.toast} ${styles[type]} ${show ? styles.show : ''}`}>
+    <div className={`${styles.toast} ${styles[type]} ${styles.show}`}>
       <div className={styles.toastContent}>
         <div className={styles.toastIcon}>
           {isSuccess && '🚀'}

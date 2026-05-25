@@ -16,6 +16,7 @@ const MIN_ORBIT_PADDING = 20;
 
 // Responsive defaults — scaled down on small viewports
 function getResponsiveSizes() {
+  /* c8 ignore next -- false branch unreachable: jsdom always provides window */
   const vw = typeof window !== 'undefined' ? window.innerWidth : 1200;
   if (vw <= 576) return { avatarSize: 320, orbitContainerSize: 400 };
   if (vw <= 768) return { avatarSize: 440, orbitContainerSize: 560 };

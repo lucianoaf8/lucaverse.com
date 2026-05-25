@@ -18,6 +18,7 @@ const PrivacyConsent = ({ onConsentChange, onPrivacyPolicyOpen, initialConsent =
   }, [consent, onConsentChange]);
 
   const handleConsentChange = (category, value) => {
+    /* c8 ignore next -- essential checkbox is disabled in UI; this guard is defensive and unreachable via rendered UI */
     if (category === 'essential') return; // Essential cannot be disabled
     
     setConsent(prev => ({

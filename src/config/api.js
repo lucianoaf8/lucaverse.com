@@ -25,6 +25,7 @@ const getConfig = () => {
     }
   };
   
+  /* c8 ignore next -- production branch: import.meta.env.DEV always true in Jest */
   const env = isDevelopment ? 'development' : 'production';
   
   return {
@@ -71,6 +72,7 @@ export const logConfig = () => {
       formsApi: API_CONFIG.formsApi,
       newsletter: API_CONFIG.newsletter,
       app: API_CONFIG.app,
+      /* c8 ignore next -- production branch unreachable in tests */
       environment: API_CONFIG.isDevelopment ? 'development' : 'production'
     });
   }

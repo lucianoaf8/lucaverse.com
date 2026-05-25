@@ -111,6 +111,7 @@ export const serverSideCSRFValidation = (formToken, cookieToken) => {
 };
 
 // Auto-initialize CSRF protection when module loads
+/* c8 ignore next -- false branch unreachable: jsdom always provides window */
 if (typeof window !== 'undefined') {
   initializeCSRFProtection();
 }

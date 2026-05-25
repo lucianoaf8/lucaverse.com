@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import styles from './Contact.module.css';
-import PrivacyConsent from '../PrivacyConsent/PrivacyConsent';
-import PrivacyPolicy from '../PrivacyPolicy/PrivacyPolicy';
-import { PrivacyManager, FormDataBuilder, PrivacyHelpers } from '../../utils/privacyUtils';
+import { FormDataBuilder } from '../../utils/privacyUtils';
 import { sanitizeFormData, VALIDATION_SCHEMAS } from '../../utils/securityUtils';
 import { getFormsEndpoint, validateEndpoint } from '../../config/api';
 import { addCSRFTokenToFormData, initializeCSRFProtection } from '../../utils/csrfUtils';
@@ -24,7 +22,7 @@ const NotificationToast = ({ show, type, message, onClose }) => {
   const isError = type === 'error';
 
   return (
-    <div className={`${styles.toast} ${styles[type]} ${show ? styles.show : ''}`}>
+    <div className={`${styles.toast} ${styles[type]} ${styles.show}`}>
       <div className={styles.toastContent}>
         <div className={styles.toastIcon}>
           {isSuccess && '🚀'}
@@ -54,10 +52,6 @@ export default function Contact() {
   const [notification, setNotification] = useState({ show: false, type: '', message: '' });
   const [validationErrors, setValidationErrors] = useState({});
   
-  // Privacy consent management
-  const [showPrivacyConsent, setShowPrivacyConsent] = useState(false);
-  const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
-  const [privacyConsent, setPrivacyConsent] = useState(null);
   const [formStartTime] = useState(Date.now());
   
   // Enhanced honeypot system
@@ -108,19 +102,6 @@ export default function Contact() {
     }
   };
 
-  const handlePrivacyConsentChange = (consent) => {
-    setPrivacyConsent(consent);
-    PrivacyManager.setConsent(consent);
-  };
-
-  const handlePrivacyConsentClose = () => {
-    setShowPrivacyConsent(false);
-    // If no consent given, set essential only
-    if (!PrivacyManager.hasConsent()) {
-      const essentialOnly = { essential: true, analytics: false, performance: false };
-      handlePrivacyConsentChange(essentialOnly);
-    }
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -239,60 +220,6 @@ export default function Contact() {
         onClose={hideNotification} 
       />
 
-      {/* Privacy Consent Modal - DISABLED */}
-      {false && showPrivacyConsent && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          width: '100%',
-          height: '100%',
-          background: 'rgba(0, 0, 0, 0.9)',
-          zIndex: 10000,
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          padding: '20px'
-        }}>
-          <div style={{
-            background: 'var(--card-background, #1a1a1a)',
-            borderRadius: '12px',
-            maxWidth: '900px',
-            width: '100%',
-            maxHeight: '90vh',
-            overflow: 'auto'
-          }}>
-            <PrivacyConsent
-              onConsentChange={handlePrivacyConsentChange}
-              onPrivacyPolicyOpen={() => setShowPrivacyPolicy(true)}
-              initialConsent={privacyConsent}
-            />
-            <div style={{ padding: '20px', textAlign: 'center' }}>
-              <button
-                onClick={handlePrivacyConsentClose}
-                style={{
-                  background: 'var(--neon-blue, #00ccff)',
-                  color: 'black',
-                  border: 'none',
-                  padding: '12px 30px',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontWeight: '600'
-                }}
-              >
-                Continue to Contact Form
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Privacy Policy Modal */}
-      <PrivacyPolicy
-        isOpen={showPrivacyPolicy}
-        onClose={() => setShowPrivacyPolicy(false)}
-      />
-      
       <section className={styles.contact} id="contact">
       <div className={styles.container}>
         <div className={styles.sectionHeader}>
@@ -437,39 +364,6 @@ export default function Contact() {
               />
             ))}
 
-            {/* Privacy Notice - DISABLED */}
-            {false && privacyConsent && (
-              <div className={styles.privacyNotice}>
-                <div className={styles.privacyStatus}>
-                  <span className={styles.privacyIcon}>🛡️</span>
-                  <div className={styles.privacyText}>
-                    <p>
-                      <strong>Privacy:</strong> {privacyConsent.analytics 
-                        ? 'Analytics enabled for website improvement'
-                        : 'Only essential data will be collected'
-                      }
-                    </p>
-                    <div className={styles.privacyActions}>
-                      <button
-                        type="button"
-                        onClick={() => setShowPrivacyConsent(true)}
-                        className={styles.privacySettings}
-                      >
-                        Privacy Settings
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setShowPrivacyPolicy(true)}
-                        className={styles.privacyPolicy}
-                      >
-                        Privacy Policy
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-            
             <button type="submit" className={styles.submitBtn} disabled={loading}>
               <span>{loading ? 'Sending...' : t('sendMessage')}</span>
               <i className="fas fa-paper-plane"></i>

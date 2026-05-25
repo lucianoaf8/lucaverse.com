@@ -62,13 +62,9 @@ const generateHoneypotPlaceholder = (fieldName) => {
   };
   
   // Find matching placeholder based on field name
-  for (const [key, placeholder] of Object.entries(placeholders)) {
-    if (fieldName.includes(key)) {
-      return placeholder;
-    }
-  }
-  
-  return 'Optional field';
+  const matched = Object.entries(placeholders).find(([key]) => fieldName.includes(key));
+  /* c8 ignore next -- fallback unreachable: generated field names always match one of the keys above */
+  return matched ? matched[1] : 'Optional field';
 };
 
 /**
