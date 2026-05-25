@@ -48,4 +48,4 @@ security-audit-remediation-plan.json
 *.lock
 !.env.example
 !package.json
-!package-lock.json
+!package-lock.jsoncoverage/

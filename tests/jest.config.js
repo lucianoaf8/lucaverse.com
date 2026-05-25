@@ -1,6 +1,11 @@
 const path = require('path');
 
+// Path to the import.meta.env shim plugin for Babel.
+// Required for src/config/api.js and src/utils/logger.js which use import.meta.env.
+const importMetaShimPlugin = path.join(__dirname, 'setup', 'babel-plugin-import-meta-shim.js');
+
 module.exports = {
+  rootDir: path.join(__dirname, '..'),
   testEnvironment: 'jsdom',
   setupFiles: [path.join(__dirname, 'setup', 'save-web-apis.js')],
   setupFilesAfterEnv: [path.join(__dirname, 'setup', 'jest.setup.js')],
@@ -17,15 +22,8 @@ module.exports = {
   },
   transform: {
     '^.+\\.(js|jsx)$': ['babel-jest', {
-      presets: [
-        ['@babel/preset-env', {
-          targets: { node: 'current' },
-          modules: 'commonjs'
-        }],
-        ['@babel/preset-react', { runtime: 'automatic' }]
-      ]
-    }],
-    '^.+\\.(ts|tsx)$': ['babel-jest', {
+      babelrc: false,
+      configFile: false,
       presets: [
         ['@babel/preset-env', {
           targets: { node: 'current' },
@@ -33,7 +31,19 @@ module.exports = {
         }],
         ['@babel/preset-react', { runtime: 'automatic' }]
       ],
-      plugins: ['@babel/plugin-syntax-typescript']
+      plugins: ['babel-plugin-istanbul', importMetaShimPlugin]
+    }],
+    '^.+\\.(ts|tsx)$': ['babel-jest', {
+      babelrc: false,
+      configFile: false,
+      presets: [
+        ['@babel/preset-env', {
+          targets: { node: 'current' },
+          modules: 'commonjs'
+        }],
+        ['@babel/preset-react', { runtime: 'automatic' }]
+      ],
+      plugins: ['@babel/plugin-syntax-typescript', 'babel-plugin-istanbul']
     }]
   },
   transformIgnorePatterns: [
@@ -42,18 +52,14 @@ module.exports = {
   globals: {
     __DEV__: true
   },
-  roots: [
-    __dirname,
-    path.join(__dirname, '..', 'src')
-  ],
   collectCoverageFrom: [
-    path.join(__dirname, '..', 'src', '**', '*.{js,jsx}').replace(/\\/g, '/'),
-    '!' + path.join(__dirname, '..', 'src', 'main.jsx').replace(/\\/g, '/'),
-    '!' + path.join(__dirname, '..', 'src', '**', '*.test.{js,jsx}').replace(/\\/g, '/'),
-    '!' + path.join(__dirname, '..', 'src', '**', '__tests__', '**').replace(/\\/g, '/'),
-    '!' + path.join(__dirname, '..', 'src', '**', '*.stories.{js,jsx}').replace(/\\/g, '/')
+    'src/**/*.{js,jsx}',
+    '!src/main.jsx',
+    '!src/**/*.test.{js,jsx}',
+    '!src/**/__tests__/**',
+    '!src/**/*.stories.{js,jsx}'
   ],
-  coverageProvider: 'babel',
+  coverageProvider: 'v8',
   coverageReporters: [
     'text',
     'lcov',
@@ -63,10 +69,10 @@ module.exports = {
   coverageDirectory: path.join(__dirname, 'coverage'),
   coverageThreshold: {
     global: {
-      branches: 50,
-      functions: 50,
-      lines: 50,
-      statements: 50
+      branches: 85,
+      functions: 85,
+      lines: 85,
+      statements: 85
     }
   },
   testMatch: [
@@ -74,7 +80,16 @@ module.exports = {
     __dirname.replace(/\\/g, '/') + '/integration/**/*.test.{js,jsx}',
     __dirname.replace(/\\/g, '/') + '/security/**/*.test.{js,jsx}'
   ],
+  testPathIgnorePatterns: [
+    '/node_modules/',
+    '/dist/',
+    '/lucaverse-auth/',
+    '/summer-heart-worker/',
+    '/.claude/'
+  ],
   coveragePathIgnorePatterns: [
-    'node_modules'
+    '/node_modules/',
+    '/tests/',
+    '/dist/'
   ]
 };
